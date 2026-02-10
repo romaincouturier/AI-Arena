@@ -20,6 +20,7 @@ export default function SetupPage() {
   const [language, setLanguage] = useState("fr");
   const [apiKeys, setApiKeys] = useState<ApiKeys>({ claude: "", openai: "", gemini: "" });
   const [showApiKeys, setShowApiKeys] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [agents, setAgents] = useState<AgentConfig[]>([
     createDefaultAgent(0),
     createDefaultAgent(1),
@@ -44,6 +45,7 @@ export default function SetupPage() {
   const applyTemplate = (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
+    setSelectedTemplate(templateId);
     setMode(template.mode);
     setMaxTurns(template.rules.maxTurns);
     setMaxTokensPerTurn(template.rules.maxTokensPerTurn);
@@ -177,14 +179,25 @@ export default function SetupPage() {
           <h2 className="mb-3 text-lg font-semibold">Templates</h2>
           <p className="mb-3 text-xs text-muted">Configurations pre-definies pour demarrer rapidement. Cliquez pour appliquer : les agents, le mode et les parametres seront pre-remplis.</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {TEMPLATES.map((template) => (
+            {TEMPLATES.map((template) => {
+              const isSelected = selectedTemplate === template.id;
+              return (
               <button
                 key={template.id}
                 onClick={() => applyTemplate(template.id)}
-                className="rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-accent hover:bg-card-hover"
+                className={`rounded-xl border p-4 text-left transition-all ${
+                  isSelected
+                    ? "border-accent bg-accent/10 ring-1 ring-accent"
+                    : "border-border bg-card hover:border-accent hover:bg-card-hover"
+                }`}
               >
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="text-sm font-semibold">{template.name}</span>
+                  {isSelected && (
+                    <svg className="h-4 w-4 shrink-0 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  <span className={`text-sm font-semibold ${isSelected ? "text-accent" : ""}`}>{template.name}</span>
                   <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                     template.mode === "decision"
                       ? "bg-amber-500/10 text-amber-500"
@@ -197,7 +210,8 @@ export default function SetupPage() {
                 </div>
                 <div className="text-xs text-muted">{template.description}</div>
               </button>
-            ))}
+              );
+            })}
           </div>
         </section>
 
