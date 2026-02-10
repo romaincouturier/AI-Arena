@@ -291,7 +291,12 @@ export default function SetupPage() {
               <input
                 type="number"
                 value={maxTurns}
-                onChange={(e) => setMaxTurns(Math.max(3, Math.min(50, Number(e.target.value))))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") { setMaxTurns(0 as unknown as number); return; }
+                  setMaxTurns(Number(val));
+                }}
+                onBlur={() => setMaxTurns(Math.max(3, Math.min(50, maxTurns || 10)))}
                 min={3}
                 max={50}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
