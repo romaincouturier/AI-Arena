@@ -88,6 +88,7 @@ export default function AgentCard({
                 Gemini {!apiKeys.gemini && "(cle requise)"}
               </option>
             </select>
+            <p className="mt-1 text-[10px] text-muted">Service IA qui alimente cet agent. Chaque provider a sa cle API.</p>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted">Modele</label>
@@ -100,6 +101,7 @@ export default function AgentCard({
                 <option key={m.id} value={m.id}>{m.label}</option>
               ))}
             </select>
+            <p className="mt-1 text-[10px] text-muted">Modele plus puissant = meilleur mais plus cher. Mini/Flash pour les roles simples.</p>
           </div>
         </div>
 
@@ -112,6 +114,7 @@ export default function AgentCard({
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
             placeholder="Ex: Expert produit B2B SaaS"
           />
+          <p className="mt-1 text-[10px] text-muted">L&apos;expertise ou la fonction de cet agent dans la discussion.</p>
         </div>
 
         <div>
@@ -123,6 +126,7 @@ export default function AgentCard({
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
             placeholder="Ex: Direct, data-driven, challenge les hypotheses"
           />
+          <p className="mt-1 text-[10px] text-muted">Comment il s&apos;exprime : ton, style d&apos;argumentation, traits de caractere.</p>
         </div>
 
         {mode === "decision" && (
@@ -137,6 +141,7 @@ export default function AgentCard({
               <option value="contre">Contre</option>
               <option value="neutre">Neutre</option>
             </select>
+            <p className="mt-1 text-[10px] text-muted">En mode Decision : l&apos;agent defendera, attaquera ou analysera la position.</p>
           </div>
         )}
       </div>

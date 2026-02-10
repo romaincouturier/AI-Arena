@@ -134,6 +134,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="sk-ant-..."
                   />
+                  <p className="mt-1 text-[10px] text-muted">Depuis console.anthropic.com. Aussi utilise pour l&apos;orchestrateur IA.</p>
                 </div>
                 <div>
                   <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
@@ -147,6 +148,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="sk-..."
                   />
+                  <p className="mt-1 text-[10px] text-muted">Depuis platform.openai.com. Pour GPT-4o et GPT-4o-mini.</p>
                 </div>
                 <div>
                   <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
@@ -160,6 +162,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="AIza..."
                   />
+                  <p className="mt-1 text-[10px] text-muted">Depuis aistudio.google.com. Pour Gemini Flash et Pro.</p>
                 </div>
               </div>
             )}
@@ -172,6 +175,7 @@ export default function SetupPage() {
         {/* Templates */}
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold">Templates</h2>
+          <p className="mb-3 text-xs text-muted">Configurations pre-definies pour demarrer rapidement. Cliquez pour appliquer : les agents, le mode et les parametres seront pre-remplis.</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {TEMPLATES.map((template) => (
               <button
@@ -200,12 +204,13 @@ export default function SetupPage() {
         {/* Topic */}
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold">Sujet de la discussion</h2>
+          <p className="mb-2 text-xs text-muted">La question, le probleme ou le theme que les agents vont discuter. Plus c&apos;est precis, meilleurs seront les echanges.</p>
           <textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             rows={3}
             className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-accent"
-            placeholder="Decrivez le sujet, la question ou le probleme a debattre..."
+            placeholder="Ex: Faut-il migrer notre monolithe vers des microservices ?"
           />
           <div className="mt-3">
             <button
@@ -215,13 +220,16 @@ export default function SetupPage() {
               {additionalContext !== "" ? "- Retirer le contexte" : "+ Ajouter du contexte supplementaire"}
             </button>
             {additionalContext !== "" && (
-              <textarea
-                value={additionalContext}
-                onChange={(e) => setAdditionalContext(e.target.value)}
-                rows={2}
-                className="mt-2 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-accent"
-                placeholder="Documents, contraintes, donnees de cadrage..."
-              />
+              <>
+                <textarea
+                  value={additionalContext}
+                  onChange={(e) => setAdditionalContext(e.target.value)}
+                  rows={2}
+                  className="mt-2 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-accent"
+                  placeholder="Ex: Budget max 50k, equipe de 5 devs, deadline Q3 2026..."
+                />
+                <p className="mt-1 text-[10px] text-muted">Informations supplementaires que tous les agents recevront : contraintes, donnees, documents de reference.</p>
+              </>
             )}
           </div>
         </section>
@@ -258,6 +266,11 @@ export default function SetupPage() {
                 <option value="interventionist">Interventionniste</option>
                 <option value="director">Directeur</option>
               </select>
+              <p className="mt-1 text-[10px] text-muted">
+                {userMode === "observer" && "Vous regardez sans intervenir"}
+                {userMode === "interventionist" && "Vous pouvez envoyer des messages, recadrer ou relancer"}
+                {userMode === "director" && "Controle total : pause, synthese, vote anticipe"}
+              </p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted">Tours max</label>
@@ -269,6 +282,7 @@ export default function SetupPage() {
                 max={50}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
               />
+              <p className="mt-1 text-[10px] text-muted">Nombre max de prises de parole (3-50). L&apos;IA peut conclure plus tot si le sujet converge.</p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted">Langue</label>
@@ -280,13 +294,14 @@ export default function SetupPage() {
                 <option value="fr">Francais</option>
                 <option value="en">English</option>
               </select>
+              <p className="mt-1 text-[10px] text-muted">Langue dans laquelle les agents echangent</p>
             </div>
           </div>
         </section>
 
         {/* Agents */}
         <section className="mb-8">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-1 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Participants ({agents.length}/6)</h2>
             {agents.length < 6 && (
               <button
@@ -297,6 +312,7 @@ export default function SetupPage() {
               </button>
             )}
           </div>
+          <p className="mb-3 text-xs text-muted">Les agents IA qui participeront a la discussion. Minimum 2, maximum 6. Chacun peut utiliser un provider et modele differents.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             {agents.map((agent, index) => (
               <AgentCard

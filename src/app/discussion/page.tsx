@@ -521,6 +521,26 @@ Sois concis et tranche.`;
   const handleStop = () => {
     if (abortRef.current) abortRef.current.abort();
     setIsRunning(false);
+    // Auto-save partial results so user can view them
+    if (config && messages.length > 0) {
+      const startTime = Number(sessionStorage.getItem("ai-arena-start-time") || Date.now());
+      const result = {
+        messages,
+        synthesis: messages.find((m) => m.isSynthesis)?.content || "Discussion arretee avant la synthese.",
+        keyPoints,
+        votes,
+        deliverable: messages.find((m) => m.isDeliverable)?.content || undefined,
+        metrics: {
+          totalTurns: turnNumber,
+          tokensPerAgent: computeTokensPerAgent(messages),
+          totalTokens,
+          totalInputTokens,
+          estimatedCost: estimatedCostUsd,
+          duration: Date.now() - startTime,
+        },
+      };
+      sessionStorage.setItem("ai-arena-result", JSON.stringify(result));
+    }
   };
 
   const handleUserIntervention = () => {
