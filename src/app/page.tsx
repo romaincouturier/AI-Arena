@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
-import type { SessionConfig, AgentConfig, DiscussionMode, UserMode } from "@/lib/types";
+import type { SessionConfig, AgentConfig, DiscussionMode, UserMode, ApiKeys } from "@/lib/types";
 import { AGENT_COLORS } from "@/lib/types";
 import { TEMPLATES } from "@/lib/templates";
 import AgentCard from "@/components/AgentCard";
@@ -18,12 +18,12 @@ export default function SetupPage() {
   const [maxTurns, setMaxTurns] = useState(10);
   const [maxTokensPerTurn, setMaxTokensPerTurn] = useState(500);
   const [language, setLanguage] = useState("fr");
-  const [apiKey, setApiKey] = useState("");
+  const [apiKeys, setApiKeys] = useState<ApiKeys>({ claude: "", openai: "", gemini: "" });
+  const [showApiKeys, setShowApiKeys] = useState(true);
   const [agents, setAgents] = useState<AgentConfig[]>([
     createDefaultAgent(0),
     createDefaultAgent(1),
   ]);
-  const [showApiKeyInput, setShowApiKeyInput] = useState(true);
 
   const addAgent = () => {
     if (agents.length >= 6) return;
@@ -44,7 +44,6 @@ export default function SetupPage() {
   const applyTemplate = (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
-
     setMode(template.mode);
     setMaxTurns(template.rules.maxTurns);
     setMaxTokensPerTurn(template.rules.maxTokensPerTurn);
@@ -58,32 +57,40 @@ export default function SetupPage() {
     );
   };
 
-  const canStart = topic.trim().length > 0 && apiKey.trim().length > 0 && agents.every((a) => a.name.trim().length > 0);
+  // At least one provider key + topic + agents named
+  const hasRequiredKey = agents.every((a) => {
+    if (a.provider === "claude") return !!apiKeys.claude?.trim();
+    if (a.provider === "openai") return !!apiKeys.openai?.trim();
+    if (a.provider === "gemini") return !!apiKeys.gemini?.trim();
+    return false;
+  });
+  const canStart = topic.trim().length > 0 && hasRequiredKey && agents.every((a) => a.name.trim().length > 0);
 
   const startDiscussion = () => {
     if (!canStart) return;
-
     const config: SessionConfig = {
       topic,
       additionalContext: additionalContext || undefined,
       mode,
       userMode,
       agents,
-      rules: {
-        maxTurns,
-        maxTokensPerTurn,
-        language,
-      },
+      rules: { maxTurns, maxTokensPerTurn, language },
     };
-
     sessionStorage.setItem("ai-arena-config", JSON.stringify(config));
-    sessionStorage.setItem("ai-arena-api-key", apiKey);
+    sessionStorage.setItem("ai-arena-api-keys", JSON.stringify(apiKeys));
     router.push("/discussion");
   };
 
+  const modeLabel: Record<DiscussionMode, string> = {
+    exploration: "Exploration",
+    decision: "Decision",
+    deliverable: "Livrable",
+  };
+
+  const usedProviders = new Set(agents.map((a) => a.provider));
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
@@ -99,7 +106,7 @@ export default function SetupPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
-        {/* API Key */}
+        {/* API Keys */}
         <section className="mb-8">
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="mb-3 flex items-center justify-between">
@@ -107,26 +114,57 @@ export default function SetupPage() {
                 <svg className="h-5 w-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                 </svg>
-                <h2 className="font-semibold">Cle API Anthropic</h2>
+                <h2 className="font-semibold">Cles API</h2>
               </div>
-              <button
-                onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                className="text-xs text-muted hover:text-foreground"
-              >
-                {showApiKeyInput ? "Masquer" : "Afficher"}
+              <button onClick={() => setShowApiKeys(!showApiKeys)} className="text-xs text-muted hover:text-foreground">
+                {showApiKeys ? "Masquer" : "Afficher"}
               </button>
             </div>
-            {showApiKeyInput && (
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-                placeholder="sk-ant-..."
-              />
+            {showApiKeys && (
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                    <span className="inline-block h-2 w-2 rounded-full bg-[#D97706]" />
+                    Anthropic (Claude) {usedProviders.has("claude") && <span className="text-accent">*requis</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKeys.claude || ""}
+                    onChange={(e) => setApiKeys({ ...apiKeys, claude: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                    placeholder="sk-ant-..."
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                    <span className="inline-block h-2 w-2 rounded-full bg-[#10A37F]" />
+                    OpenAI {usedProviders.has("openai") && <span className="text-accent">*requis</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKeys.openai || ""}
+                    onChange={(e) => setApiKeys({ ...apiKeys, openai: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                    placeholder="sk-..."
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                    <span className="inline-block h-2 w-2 rounded-full bg-[#4285F4]" />
+                    Google (Gemini) {usedProviders.has("gemini") && <span className="text-accent">*requis</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKeys.gemini || ""}
+                    onChange={(e) => setApiKeys({ ...apiKeys, gemini: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                    placeholder="AIza..."
+                  />
+                </div>
+              </div>
             )}
             <p className="mt-2 text-xs text-muted">
-              Votre cle reste stockee uniquement dans votre navigateur (sessionStorage).
+              Vos cles restent stockees uniquement dans votre navigateur (sessionStorage). Seules les cles des providers utilises sont requises.
             </p>
           </div>
         </section>
@@ -134,14 +172,25 @@ export default function SetupPage() {
         {/* Templates */}
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold">Templates</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {TEMPLATES.map((template) => (
               <button
                 key={template.id}
                 onClick={() => applyTemplate(template.id)}
                 className="rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-accent hover:bg-card-hover"
               >
-                <div className="mb-1 text-sm font-semibold">{template.name}</div>
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="text-sm font-semibold">{template.name}</span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    template.mode === "decision"
+                      ? "bg-amber-500/10 text-amber-500"
+                      : template.mode === "deliverable"
+                        ? "bg-emerald-500/10 text-emerald-500"
+                        : "bg-accent/10 text-accent"
+                  }`}>
+                    {modeLabel[template.mode]}
+                  </span>
+                </div>
                 <div className="text-xs text-muted">{template.description}</div>
               </button>
             ))}
@@ -160,14 +209,10 @@ export default function SetupPage() {
           />
           <div className="mt-3">
             <button
-              onClick={() =>
-                setAdditionalContext(additionalContext ? "" : " ")
-              }
+              onClick={() => setAdditionalContext(additionalContext ? "" : " ")}
               className="text-xs text-muted hover:text-foreground"
             >
-              {additionalContext !== ""
-                ? "- Retirer le contexte"
-                : "+ Ajouter du contexte supplementaire"}
+              {additionalContext !== "" ? "- Retirer le contexte" : "+ Ajouter du contexte supplementaire"}
             </button>
             {additionalContext !== "" && (
               <textarea
@@ -186,27 +231,24 @@ export default function SetupPage() {
           <h2 className="mb-3 text-lg font-semibold">Parametres</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted">
-                Mode
-              </label>
+              <label className="mb-1 block text-xs font-medium text-muted">Mode</label>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as DiscussionMode)}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
               >
                 <option value="exploration">Exploration</option>
-                <option value="decision" disabled>
-                  Decision (V2)
-                </option>
-                <option value="deliverable" disabled>
-                  Livrable (V2)
-                </option>
+                <option value="decision">Decision</option>
+                <option value="deliverable">Livrable</option>
               </select>
+              <p className="mt-1 text-[10px] text-muted">
+                {mode === "exploration" && "Discussion ouverte, brainstorming"}
+                {mode === "decision" && "Debat contradictoire + vote final"}
+                {mode === "deliverable" && "Production iterative d'un document"}
+              </p>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted">
-                Mode utilisateur
-              </label>
+              <label className="mb-1 block text-xs font-medium text-muted">Mode utilisateur</label>
               <select
                 value={userMode}
                 onChange={(e) => setUserMode(e.target.value as UserMode)}
@@ -218,24 +260,18 @@ export default function SetupPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted">
-                Tours max
-              </label>
+              <label className="mb-1 block text-xs font-medium text-muted">Tours max</label>
               <input
                 type="number"
                 value={maxTurns}
-                onChange={(e) =>
-                  setMaxTurns(Math.max(3, Math.min(50, Number(e.target.value))))
-                }
+                onChange={(e) => setMaxTurns(Math.max(3, Math.min(50, Number(e.target.value))))}
                 min={3}
                 max={50}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted">
-                Langue
-              </label>
+              <label className="mb-1 block text-xs font-medium text-muted">Langue</label>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
@@ -251,9 +287,7 @@ export default function SetupPage() {
         {/* Agents */}
         <section className="mb-8">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">
-              Participants ({agents.length}/6)
-            </h2>
+            <h2 className="text-lg font-semibold">Participants ({agents.length}/6)</h2>
             {agents.length < 6 && (
               <button
                 onClick={addAgent}
@@ -272,6 +306,8 @@ export default function SetupPage() {
                 onUpdate={(a) => updateAgent(index, a)}
                 onRemove={() => removeAgent(index)}
                 canRemove={agents.length > 2}
+                apiKeys={apiKeys}
+                mode={mode}
               />
             ))}
           </div>
@@ -286,9 +322,9 @@ export default function SetupPage() {
           >
             Lancer la discussion
           </button>
-          {!apiKey.trim() && (
+          {!hasRequiredKey && (
             <p className="mt-2 text-center text-xs text-danger">
-              Veuillez entrer votre cle API Anthropic pour commencer.
+              Veuillez entrer les cles API requises pour les providers utilises.
             </p>
           )}
         </div>

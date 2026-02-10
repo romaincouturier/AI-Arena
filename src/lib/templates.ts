@@ -5,7 +5,7 @@ export const TEMPLATES: Template[] = [
     id: "debate",
     name: "Debat contradictoire",
     description: "2 agents en opposition + 1 moderateur pour structurer un debat argumente",
-    mode: "exploration",
+    mode: "decision",
     agents: [
       {
         name: "Defenseur",
@@ -44,8 +44,8 @@ export const TEMPLATES: Template[] = [
   {
     id: "comite-direction",
     name: "Comite de direction",
-    description: "4 agents avec des roles metier differents pour une prise de decision strategique",
-    mode: "exploration",
+    description: "4 agents avec des roles metier pour une decision strategique",
+    mode: "decision",
     agents: [
       {
         name: "CEO",
@@ -127,7 +127,7 @@ export const TEMPLATES: Template[] = [
     id: "revue-technique",
     name: "Revue technique",
     description: "3 agents experts pour produire une recommandation technique argumentee",
-    mode: "exploration",
+    mode: "deliverable",
     agents: [
       {
         name: "Architecte",
@@ -157,6 +157,83 @@ export const TEMPLATES: Template[] = [
     rules: {
       maxTurns: 12,
       maxTokensPerTurn: 600,
+      language: "fr",
+    },
+  },
+  {
+    id: "co-ecriture",
+    name: "Atelier co-ecriture",
+    description: "3 agents aux styles differents pour co-produire un texte de qualite",
+    mode: "deliverable",
+    agents: [
+      {
+        name: "Redacteur",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Redacteur principal",
+        personality: "Eloquent, structure ses idees clairement, produit des brouillons solides",
+        color: "#3B82F6",
+      },
+      {
+        name: "Editeur",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Editeur critique",
+        personality: "Exigeant sur la forme et le fond, propose des reformulations, elimine le superflu",
+        color: "#EF4444",
+      },
+      {
+        name: "Creatif",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Directeur artistique des mots",
+        personality: "Recherche l'originalite, les metaphores marquantes, le rythme narratif",
+        color: "#8B5CF6",
+      },
+    ],
+    rules: {
+      maxTurns: 10,
+      maxTokensPerTurn: 600,
+      language: "fr",
+    },
+  },
+  {
+    id: "negociation",
+    name: "Negociation",
+    description: "3 agents avec des interets divergents cherchent un accord mutuellement benefique",
+    mode: "decision",
+    agents: [
+      {
+        name: "Partie A",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Representant de la premiere partie",
+        personality: "Ferme sur ses interets cles, mais ouvert au compromis sur les points secondaires",
+        stance: "pour",
+        color: "#3B82F6",
+      },
+      {
+        name: "Partie B",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Representant de la seconde partie",
+        personality: "Strategique, cherche a maximiser sa position tout en preservant la relation",
+        stance: "contre",
+        color: "#EF4444",
+      },
+      {
+        name: "Mediateur",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Mediateur neutre",
+        personality: "Facilitateur, identifie les zones d'accord, propose des solutions creatives",
+        stance: "neutre",
+        color: "#10B981",
+      },
+    ],
+    rules: {
+      maxTurns: 14,
+      maxTokensPerTurn: 500,
       language: "fr",
     },
   },

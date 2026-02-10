@@ -25,6 +25,12 @@ export interface AgentConfig {
   };
 }
 
+export interface ApiKeys {
+  claude?: string;
+  openai?: string;
+  gemini?: string;
+}
+
 export interface SessionConfig {
   topic: string;
   additionalContext?: string;
@@ -43,12 +49,17 @@ export interface Message {
   agentId: string;
   agentName: string;
   agentColor: string;
+  provider?: Provider;
   content: string;
   turnNumber: number;
   timestamp: number;
   tokenCount?: number;
+  inputTokens?: number;
   isUser?: boolean;
   isSynthesis?: boolean;
+  isVote?: boolean;
+  isDeliverable?: boolean;
+  isOrchestrator?: boolean;
 }
 
 export interface OrchestratorDecision {
@@ -59,14 +70,25 @@ export interface OrchestratorDecision {
   turnNumber: number;
 }
 
+export interface VoteResult {
+  agentId: string;
+  agentName: string;
+  vote: string;
+  reasoning: string;
+}
+
 export interface SessionResult {
   messages: Message[];
   synthesis: string;
   keyPoints: string[];
+  votes?: VoteResult[];
+  deliverable?: string;
   metrics: {
     totalTurns: number;
     tokensPerAgent: Record<string, number>;
     totalTokens: number;
+    totalInputTokens: number;
+    estimatedCost: number;
     duration: number;
   };
 }
@@ -96,8 +118,26 @@ export const AVAILABLE_MODELS: Record<Provider, { id: string; label: string }[]>
   ],
   openai: [
     { id: "gpt-4o", label: "GPT-4o" },
+    { id: "gpt-4o-mini", label: "GPT-4o Mini" },
   ],
   gemini: [
-    { id: "gemini-pro", label: "Gemini Pro" },
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro" },
   ],
 };
+
+// Cost per 1M tokens (input / output) in USD
+export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+  "claude-sonnet-4-20250514": { input: 3, output: 15 },
+  "claude-haiku-4-20250414": { input: 0.80, output: 4 },
+  "gpt-4o": { input: 2.5, output: 10 },
+  "gpt-4o-mini": { input: 0.15, output: 0.6 },
+  "gemini-2.0-flash": { input: 0.10, output: 0.40 },
+  "gemini-2.5-pro-preview-05-06": { input: 1.25, output: 10 },
+};
+
+export function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
+  const cost = MODEL_COSTS[model];
+  if (!cost) return 0;
+  return (inputTokens * cost.input + outputTokens * cost.output) / 1_000_000;
+}

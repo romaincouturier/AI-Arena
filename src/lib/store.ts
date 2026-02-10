@@ -35,25 +35,15 @@ export function useSessionStore() {
   }, [abortController]);
 
   return {
-    config,
-    setConfig,
-    messages,
-    setMessages,
-    addMessage,
-    isRunning,
-    setIsRunning,
-    isPaused,
-    setIsPaused,
-    currentSpeaker,
-    setCurrentSpeaker,
-    streamingContent,
-    setStreamingContent,
-    result,
-    setResult,
-    error,
-    setError,
-    abortController,
-    setAbortController,
+    config, setConfig,
+    messages, setMessages, addMessage,
+    isRunning, setIsRunning,
+    isPaused, setIsPaused,
+    currentSpeaker, setCurrentSpeaker,
+    streamingContent, setStreamingContent,
+    result, setResult,
+    error, setError,
+    abortController, setAbortController,
     reset,
   };
 }
@@ -68,4 +58,43 @@ export function createDefaultAgent(index: number): AgentConfig {
     personality: "",
     color: AGENT_COLORS[index % AGENT_COLORS.length],
   };
+}
+
+/**
+ * Sliding context window: keeps the first message (topic intro),
+ * a summary of skipped messages, and the last N messages.
+ */
+export function buildSlidingContext(
+  messages: Message[],
+  maxMessages: number = 20
+): { agentName: string; content: string; isUser?: boolean }[] {
+  if (messages.length <= maxMessages) {
+    return messages.map((m) => ({
+      agentName: m.agentName,
+      content: m.content,
+      isUser: m.isUser,
+    }));
+  }
+
+  const kept = messages.slice(-maxMessages);
+  const skipped = messages.slice(0, messages.length - maxMessages);
+
+  const summaryPoints = skipped
+    .filter((m) => !m.isUser)
+    .map((m) => `- ${m.agentName}: ${m.content.slice(0, 120)}...`);
+
+  const summaryMessage = {
+    agentName: "Systeme",
+    content: `[Resume des ${skipped.length} messages precedents]\n${summaryPoints.join("\n")}`,
+    isUser: false,
+  };
+
+  return [
+    summaryMessage,
+    ...kept.map((m) => ({
+      agentName: m.agentName,
+      content: m.content,
+      isUser: m.isUser,
+    })),
+  ];
 }
