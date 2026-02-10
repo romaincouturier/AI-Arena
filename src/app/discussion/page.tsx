@@ -7,6 +7,7 @@ import { estimateCost } from "@/lib/types";
 import { buildSlidingContext } from "@/lib/store";
 import MessageBubble from "@/components/MessageBubble";
 import TypingIndicator from "@/components/TypingIndicator";
+import { exportToMarkdown, downloadMarkdown } from "@/lib/export";
 import { v4 as uuidv4 } from "uuid";
 
 export default function DiscussionPage() {
@@ -28,6 +29,7 @@ export default function DiscussionPage() {
   const [discussionState, setDiscussionState] = useState<DiscussionState>("active");
   const [votes, setVotes] = useState<VoteResult[]>([]);
   const [interventionType, setInterventionType] = useState<"message" | "recadrer" | "relancer">("message");
+  const [copied, setCopied] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasScrolledRef = useRef(false);
@@ -621,9 +623,9 @@ Sois concis et tranche.`;
     setMessages((prev) => [...prev, delivMsg]);
   };
 
-  const goToResults = () => {
+  const buildResult = useCallback(() => {
     const startTime = Number(sessionStorage.getItem("ai-arena-start-time") || Date.now());
-    const result = {
+    return {
       messages,
       synthesis: messages.find((m) => m.isSynthesis)?.content || "",
       keyPoints,
@@ -638,9 +640,110 @@ Sois concis et tranche.`;
         duration: Date.now() - startTime,
       },
     };
+  }, [messages, keyPoints, votes, turnNumber, totalTokens, totalInputTokens, estimatedCostUsd]);
+
+  const goToResults = () => {
+    const result = buildResult();
     sessionStorage.setItem("ai-arena-result", JSON.stringify(result));
     router.push("/results");
   };
+
+  const handleCopyAll = async () => {
+    if (!config) return;
+    const result = buildResult();
+    const md = exportToMarkdown(config, result);
+    await navigator.clipboard.writeText(md);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadMd = () => {
+    if (!config) return;
+    const result = buildResult();
+    const md = exportToMarkdown(config, result);
+    const slug = config.topic.slice(0, 40).replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-");
+    downloadMarkdown(md, `ai-arena-${slug}.md`);
+  };
+
+  const handleContinue = useCallback(async () => {
+    if (!config || isRunning) return;
+    // Add 5 more turns
+    const extendedConfig = {
+      ...config,
+      rules: { ...config.rules, maxTurns: config.rules.maxTurns + 5 },
+    };
+    setConfig(extendedConfig);
+    sessionStorage.setItem("ai-arena-config", JSON.stringify(extendedConfig));
+
+    setIsRunning(true);
+    setError(null);
+    abortRef.current = new AbortController();
+
+    const allMessages = [...messages];
+    let currentTurn = turnNumber;
+    let tokensUsed = totalTokens;
+    let inputTokensUsed = totalInputTokens;
+    let costAccumulated = estimatedCostUsd;
+
+    try {
+      for (let i = 0; i < 5; i++) {
+        currentTurn += 1;
+        setTurnNumber(currentTurn);
+
+        while (pauseRef.current) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+        if (abortRef.current?.signal.aborted) throw new Error("Discussion arretee");
+
+        const decision = await callOrchestrator(allMessages, currentTurn);
+        setDiscussionState(decision.discussionState);
+        if (decision.keyPointsSoFar?.length) setKeyPoints(decision.keyPointsSoFar);
+
+        if (decision.discussionState === "ready_to_conclude") break;
+
+        const agent = config.agents.find((a) => a.id === decision.nextSpeaker) || config.agents[i % config.agents.length];
+
+        const pendingUserMessages = userMessagesRef.current;
+        if (pendingUserMessages.length > 0) {
+          allMessages.push(...pendingUserMessages);
+          setMessages([...allMessages]);
+          userMessagesRef.current = [];
+        }
+
+        const { content, outputTokens, inputTokens } = await callAgent(agent, decision.instruction, allMessages);
+
+        tokensUsed += outputTokens;
+        inputTokensUsed += inputTokens;
+        const turnCost = estimateCost(agent.model, inputTokens, outputTokens);
+        costAccumulated += turnCost;
+        setTotalTokens(tokensUsed);
+        setTotalInputTokens(inputTokensUsed);
+        setEstimatedCostUsd(costAccumulated);
+
+        const message: Message = {
+          id: uuidv4(),
+          agentId: agent.id,
+          agentName: agent.name,
+          agentColor: agent.color,
+          provider: agent.provider,
+          content,
+          turnNumber: currentTurn,
+          timestamp: Date.now(),
+          tokenCount: outputTokens,
+          inputTokens,
+        };
+        allMessages.push(message);
+        setMessages([...allMessages]);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") { /* ok */ }
+      else setError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setIsRunning(false);
+      setCurrentSpeaker(null);
+      setStreamingContent("");
+    }
+  }, [config, isRunning, messages, turnNumber, totalTokens, totalInputTokens, estimatedCostUsd, callAgent, callOrchestrator]);
 
   if (!config) {
     return (
@@ -716,9 +819,48 @@ Sois concis et tranche.`;
               </div>
             )}
             {!isRunning && messages.length > 0 && (
-              <button onClick={goToResults} className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover">
-                Resultats
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCopyAll}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+                  title="Copier tous les echanges"
+                >
+                  {copied ? (
+                    <span className="flex items-center gap-1 text-success">
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      Copie
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                      Copier
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={handleDownloadMd}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+                  title="Telecharger en Markdown"
+                >
+                  <span className="flex items-center gap-1">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    .md
+                  </span>
+                </button>
+                <button
+                  onClick={handleContinue}
+                  className="rounded-lg border border-accent/30 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/10"
+                  title="Continuer la discussion (+5 tours)"
+                >
+                  <span className="flex items-center gap-1">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Continuer
+                  </span>
+                </button>
+                <button onClick={goToResults} className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover">
+                  Resultats
+                </button>
+              </div>
             )}
           </div>
         </div>
