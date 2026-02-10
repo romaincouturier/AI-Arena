@@ -238,6 +238,43 @@ export const TEMPLATES: Template[] = [
     },
   },
   {
+    id: "produit",
+    name: "Specs produit",
+    description: "PM, Designer UX et Tech Lead collaborent pour specifier un produit depuis le probleme utilisateur",
+    mode: "deliverable",
+    agents: [
+      {
+        name: "Product Manager",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Product Manager senior - vision, priorisation et specs progressives",
+        personality: "Part toujours des problemes utilisateurs, jamais des fonctionnalites. Transforme une vision floue en hypotheses testables. Ecrit des specs courtes et iteratives : vision produit, cibles, parcours utilisateurs, regles metier, criteres de succes. Arbitre entre valeur, complexite et vitesse. Refuse les paves figes.",
+        color: "#3B82F6",
+      },
+      {
+        name: "Designer UX",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Product Designer - parcours, frictions et prototypage",
+        personality: "Challenge les suppositions, rend visibles les parcours et les frictions. Pense wireframes et scenarios d'usage avant les specs ecrites. Rappelle qu'un bon prototype remplace 20 pages de specs. Centre sur l'humain, pragmatique, visuel.",
+        color: "#8B5CF6",
+      },
+      {
+        name: "Tech Lead",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Tech Lead / Architecte - faisabilite, garde-fous et options techniques",
+        personality: "Detecte les fausses bonnes idees techniquement couteuses. Pose des garde-fous (scalabilite, securite, dette). Propose des options techniques sans imposer de solution trop tot. Intervient en relecture et cadrage, pas en pilote. Alerte si on sur-specifie ou si on fige l'architecture avant d'avoir valide l'usage.",
+        color: "#F59E0B",
+      },
+    ],
+    rules: {
+      maxTurns: 16,
+      maxTokensPerTurn: 600,
+      language: "fr",
+    },
+  },
+  {
     id: "soutien-psy",
     name: "Soutien psychologique",
     description: "3 agents aux approches complementaires pour accompagner une personne en difficulte",
