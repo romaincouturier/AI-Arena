@@ -16,7 +16,7 @@ export default function SetupPage() {
   const [mode, setMode] = useState<DiscussionMode>("exploration");
   const [userMode, setUserMode] = useState<UserMode>("observer");
   const [maxTurns, setMaxTurns] = useState(10);
-  const [maxTokensPerTurn, setMaxTokensPerTurn] = useState(500);
+  const [maxTokensPerTurn, setMaxTokensPerTurn] = useState(800);
   const [language, setLanguage] = useState("fr");
   const [apiKeys, setApiKeys] = useState<ApiKeys>({ claude: "", openai: "", gemini: "" });
   const [showApiKeys, setShowApiKeys] = useState(true);
