@@ -1013,7 +1013,7 @@ Ta personnalite : ${agent.personality || "Neutre et constructif"}
 ${agent.stance ? `Ta position initiale : ${agent.stance}` : ""}
 
 Regles de la discussion :
-- Reponds de maniere concise et percutante (max ${config.rules.maxTokensPerTurn} tokens)
+- Reponds de maniere concise et percutante, mais termine toujours tes idees
 - Adresse-toi directement aux autres participants par leur nom
 - Fais avancer la discussion : ne repete pas ce qui a ete dit
 - Si tu es d'accord avec un point, dis-le brievement et ajoute de la valeur
