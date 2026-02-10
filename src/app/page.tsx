@@ -20,6 +20,7 @@ export default function SetupPage() {
   const [language, setLanguage] = useState("fr");
   const [apiKeys, setApiKeys] = useState<ApiKeys>({ claude: "", openai: "", gemini: "" });
   const [showApiKeys, setShowApiKeys] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [agents, setAgents] = useState<AgentConfig[]>([
     createDefaultAgent(0),
     createDefaultAgent(1),
@@ -44,6 +45,7 @@ export default function SetupPage() {
   const applyTemplate = (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
+    setSelectedTemplate(templateId);
     setMode(template.mode);
     setMaxTurns(template.rules.maxTurns);
     setMaxTokensPerTurn(template.rules.maxTokensPerTurn);
@@ -134,7 +136,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="sk-ant-..."
                   />
-                  <p className="mt-1 text-[10px] text-muted">Depuis console.anthropic.com. Aussi utilise pour l&apos;orchestrateur IA.</p>
+                  <p className="mt-1 text-[10px] text-muted">Aussi utilise pour l&apos;orchestrateur IA. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
                 </div>
                 <div>
                   <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
@@ -148,7 +150,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="sk-..."
                   />
-                  <p className="mt-1 text-[10px] text-muted">Depuis platform.openai.com. Pour GPT-4o et GPT-4o-mini.</p>
+                  <p className="mt-1 text-[10px] text-muted">Pour GPT-4o et GPT-4o-mini. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
                 </div>
                 <div>
                   <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
@@ -162,7 +164,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="AIza..."
                   />
-                  <p className="mt-1 text-[10px] text-muted">Depuis aistudio.google.com. Pour Gemini Flash et Pro.</p>
+                  <p className="mt-1 text-[10px] text-muted">Pour Gemini Flash et Pro. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
                 </div>
               </div>
             )}
@@ -177,14 +179,25 @@ export default function SetupPage() {
           <h2 className="mb-3 text-lg font-semibold">Templates</h2>
           <p className="mb-3 text-xs text-muted">Configurations pre-definies pour demarrer rapidement. Cliquez pour appliquer : les agents, le mode et les parametres seront pre-remplis.</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {TEMPLATES.map((template) => (
+            {TEMPLATES.map((template) => {
+              const isSelected = selectedTemplate === template.id;
+              return (
               <button
                 key={template.id}
                 onClick={() => applyTemplate(template.id)}
-                className="rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-accent hover:bg-card-hover"
+                className={`rounded-xl border p-4 text-left transition-all ${
+                  isSelected
+                    ? "border-accent bg-accent/10 ring-1 ring-accent"
+                    : "border-border bg-card hover:border-accent hover:bg-card-hover"
+                }`}
               >
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="text-sm font-semibold">{template.name}</span>
+                  {isSelected && (
+                    <svg className="h-4 w-4 shrink-0 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  <span className={`text-sm font-semibold ${isSelected ? "text-accent" : ""}`}>{template.name}</span>
                   <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                     template.mode === "decision"
                       ? "bg-amber-500/10 text-amber-500"
@@ -197,7 +210,8 @@ export default function SetupPage() {
                 </div>
                 <div className="text-xs text-muted">{template.description}</div>
               </button>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -277,7 +291,12 @@ export default function SetupPage() {
               <input
                 type="number"
                 value={maxTurns}
-                onChange={(e) => setMaxTurns(Math.max(3, Math.min(50, Number(e.target.value))))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") { setMaxTurns(0 as unknown as number); return; }
+                  setMaxTurns(Number(val));
+                }}
+                onBlur={() => setMaxTurns(Math.max(3, Math.min(50, maxTurns || 10)))}
                 min={3}
                 max={50}
                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
