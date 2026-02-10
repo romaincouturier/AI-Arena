@@ -29,12 +29,30 @@ export default function DiscussionPage() {
   const [votes, setVotes] = useState<VoteResult[]>([]);
   const [interventionType, setInterventionType] = useState<"message" | "recadrer" | "relancer">("message");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const userHasScrolledRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const pauseRef = useRef(false);
   const userMessagesRef = useRef<Message[]>([]);
 
   useEffect(() => { pauseRef.current = isPaused; }, [isPaused]);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, streamingContent]);
+
+  // Smart auto-scroll: only scroll down if user is near the bottom
+  const scrollToBottom = useCallback(() => {
+    if (!userHasScrolledRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+
+  useEffect(() => { scrollToBottom(); }, [messages, streamingContent, scrollToBottom]);
+
+  // Detect user scroll: if they scroll up, stop auto-scrolling; if back at bottom, resume
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    userHasScrolledRef.current = distanceFromBottom > 150;
+  }, []);
 
   useEffect(() => {
     const configStr = sessionStorage.getItem("ai-arena-config");
@@ -702,7 +720,7 @@ Sois concis et tranche.`;
 
       {/* Key points sidebar (if any) */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-y-auto py-4">
+        <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto py-4">
           {messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
           ))}
