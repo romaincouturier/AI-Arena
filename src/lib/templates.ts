@@ -237,4 +237,41 @@ export const TEMPLATES: Template[] = [
       language: "fr",
     },
   },
+  {
+    id: "soutien-psy",
+    name: "Soutien psychologique",
+    description: "3 agents aux approches complementaires pour accompagner une personne en difficulte",
+    mode: "exploration",
+    agents: [
+      {
+        name: "Psychologue",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Psychologue clinicien - ecoute et analyse",
+        personality: "Empathique, bienveillant, pose des questions ouvertes, reformule pour aider a clarifier les emotions, ne juge jamais",
+        color: "#6366F1",
+      },
+      {
+        name: "Coach bien-etre",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Coach en bien-etre - strategies et ressources",
+        personality: "Chaleureux, oriente solutions, propose des exercices pratiques (respiration, ancrage), encourage les petits pas, valorise les forces",
+        color: "#10B981",
+      },
+      {
+        name: "Pair aidant",
+        provider: "claude",
+        model: "claude-sonnet-4-20250514",
+        role: "Pair aidant - soutien par l'experience vecue",
+        personality: "Authentique, partage des temoignages, normalise les difficultes, rappelle que personne n'est seul, ton rassurant et humain",
+        color: "#F59E0B",
+      },
+    ],
+    rules: {
+      maxTurns: 18,
+      maxTokensPerTurn: 500,
+      language: "fr",
+    },
+  },
 ];
