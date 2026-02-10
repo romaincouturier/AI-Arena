@@ -134,7 +134,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="sk-ant-..."
                   />
-                  <p className="mt-1 text-[10px] text-muted">Depuis console.anthropic.com. Aussi utilise pour l&apos;orchestrateur IA.</p>
+                  <p className="mt-1 text-[10px] text-muted">Aussi utilise pour l&apos;orchestrateur IA. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
                 </div>
                 <div>
                   <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
@@ -148,7 +148,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="sk-..."
                   />
-                  <p className="mt-1 text-[10px] text-muted">Depuis platform.openai.com. Pour GPT-4o et GPT-4o-mini.</p>
+                  <p className="mt-1 text-[10px] text-muted">Pour GPT-4o et GPT-4o-mini. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
                 </div>
                 <div>
                   <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
@@ -162,7 +162,7 @@ export default function SetupPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
                     placeholder="AIza..."
                   />
-                  <p className="mt-1 text-[10px] text-muted">Depuis aistudio.google.com. Pour Gemini Flash et Pro.</p>
+                  <p className="mt-1 text-[10px] text-muted">Pour Gemini Flash et Pro. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
                 </div>
               </div>
             )}
