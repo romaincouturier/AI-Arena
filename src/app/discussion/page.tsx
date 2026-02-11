@@ -8,6 +8,7 @@ import { buildSlidingContext } from "@/lib/store";
 import MessageBubble from "@/components/MessageBubble";
 import TypingIndicator from "@/components/TypingIndicator";
 import { exportToMarkdown, downloadMarkdown } from "@/lib/export";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { v4 as uuidv4 } from "uuid";
 
 export default function DiscussionPage() {
@@ -30,6 +31,12 @@ export default function DiscussionPage() {
   const [votes, setVotes] = useState<VoteResult[]>([]);
   const [interventionType, setInterventionType] = useState<"message" | "recadrer" | "relancer">("message");
   const [copied, setCopied] = useState(false);
+  const lang = config?.rules.language === "fr" ? "fr-FR" : "en-US";
+  const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(lang);
+  const voiceToInput = useCallback(() => {
+    if (isListening) { stopListening(); return; }
+    startListening((text) => setUserInput((prev) => prev ? prev + " " + text : text));
+  }, [isListening, startListening, stopListening]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasScrolledRef = useRef(false);
@@ -1016,6 +1023,20 @@ Sois concis et tranche.`;
                     : "Intervenir dans la discussion..."
               }
             />
+            {micSupported && (
+              <button
+                type="button"
+                onClick={voiceToInput}
+                className={`shrink-0 rounded-lg p-2 transition-colors ${
+                  isListening ? "bg-danger/10 text-danger animate-pulse" : "text-muted hover:text-accent hover:bg-accent/10"
+                }`}
+                title={isListening ? "Arreter l'ecoute" : "Dicter un message"}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8m-4-12a3 3 0 00-3 3v4a3 3 0 006 0V8a3 3 0 00-3-3z" />
+                </svg>
+              </button>
+            )}
             <button
               onClick={handleUserIntervention}
               disabled={!userInput.trim()}
