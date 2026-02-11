@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import type { SessionConfig, AgentConfig, DiscussionMode, UserMode, ApiKeys } from "@/lib/types";
@@ -8,6 +8,7 @@ import { AGENT_COLORS } from "@/lib/types";
 import { TEMPLATES } from "@/lib/templates";
 import AgentCard from "@/components/AgentCard";
 import { createDefaultAgent } from "@/lib/store";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -21,10 +22,18 @@ export default function SetupPage() {
   const [apiKeys, setApiKeys] = useState<ApiKeys>({ claude: "", openai: "", gemini: "" });
   const [showApiKeys, setShowApiKeys] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [agents, setAgents] = useState<AgentConfig[]>([
     createDefaultAgent(0),
     createDefaultAgent(1),
   ]);
+
+  const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(language === "fr" ? "fr-FR" : "en-US");
+
+  const voiceToTopic = useCallback(() => {
+    if (isListening) { stopListening(); return; }
+    startListening((text) => setTopic((prev) => prev ? prev + " " + text : text));
+  }, [isListening, startListening, stopListening]);
 
   const addAgent = () => {
     if (agents.length >= 6) return;
@@ -219,13 +228,29 @@ export default function SetupPage() {
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold">Sujet de la discussion</h2>
           <p className="mb-2 text-xs text-muted">La question, le probleme ou le theme que les agents vont discuter. Plus c&apos;est precis, meilleurs seront les echanges.</p>
-          <textarea
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            rows={3}
-            className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-accent"
-            placeholder="Ex: Faut-il migrer notre monolithe vers des microservices ?"
-          />
+          <div className="relative">
+            <textarea
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              rows={3}
+              className="w-full rounded-xl border border-border bg-card px-4 py-3 pr-12 text-sm outline-none focus:border-accent"
+              placeholder="Ex: Faut-il migrer notre monolithe vers des microservices ?"
+            />
+            {micSupported && (
+              <button
+                type="button"
+                onClick={voiceToTopic}
+                className={`absolute right-3 top-3 rounded-lg p-2 transition-colors ${
+                  isListening ? "bg-danger/10 text-danger animate-pulse" : "text-muted hover:text-accent hover:bg-accent/10"
+                }`}
+                title={isListening ? "Arreter l'ecoute" : "Dicter le sujet"}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8m-4-12a3 3 0 00-3 3v4a3 3 0 006 0V8a3 3 0 00-3-3z" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="mt-3">
             <button
               onClick={() => setAdditionalContext(additionalContext ? "" : " ")}
@@ -248,6 +273,21 @@ export default function SetupPage() {
           </div>
         </section>
 
+        {/* Advanced toggle */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-2 text-sm text-muted transition-colors hover:text-foreground"
+          >
+            <svg className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Options avancees
+            <span className="text-xs text-muted">(parametres, agents, modeles)</span>
+          </button>
+        </div>
+
+        {showAdvanced && <>
         {/* Discussion settings */}
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold">Parametres</h2>
@@ -347,6 +387,7 @@ export default function SetupPage() {
             ))}
           </div>
         </section>
+        </>}
 
         {/* Start button */}
         <div className="sticky bottom-0 border-t border-border bg-background py-4">

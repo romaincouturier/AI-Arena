@@ -113,15 +113,15 @@ export const AGENT_COLORS = [
 
 export const AVAILABLE_MODELS: Record<Provider, { id: string; label: string }[]> = {
   claude: [
+    { id: "claude-haiku-4-20250414", label: "Claude Haiku 4 (eco)" },
     { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
-    { id: "claude-haiku-4-20250414", label: "Claude Haiku 4" },
   ],
   openai: [
+    { id: "gpt-4o-mini", label: "GPT-4o Mini (eco)" },
     { id: "gpt-4o", label: "GPT-4o" },
-    { id: "gpt-4o-mini", label: "GPT-4o Mini" },
   ],
   gemini: [
-    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash (eco)" },
     { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro" },
   ],
 };

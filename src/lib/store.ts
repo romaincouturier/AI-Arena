@@ -53,7 +53,7 @@ export function createDefaultAgent(index: number): AgentConfig {
     id: uuidv4(),
     name: `Agent ${index + 1}`,
     provider: "claude",
-    model: "claude-sonnet-4-20250514",
+    model: "claude-haiku-4-20250414",
     role: "",
     personality: "",
     color: AGENT_COLORS[index % AGENT_COLORS.length],

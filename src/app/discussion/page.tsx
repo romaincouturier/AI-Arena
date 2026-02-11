@@ -8,6 +8,7 @@ import { buildSlidingContext } from "@/lib/store";
 import MessageBubble from "@/components/MessageBubble";
 import TypingIndicator from "@/components/TypingIndicator";
 import { exportToMarkdown, downloadMarkdown } from "@/lib/export";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { v4 as uuidv4 } from "uuid";
 
 export default function DiscussionPage() {
@@ -30,6 +31,15 @@ export default function DiscussionPage() {
   const [votes, setVotes] = useState<VoteResult[]>([]);
   const [interventionType, setInterventionType] = useState<"message" | "recadrer" | "relancer">("message");
   const [copied, setCopied] = useState(false);
+  const [rating, setRating] = useState<number | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const lang = config?.rules.language === "fr" ? "fr-FR" : "en-US";
+  const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(lang);
+  const voiceToInput = useCallback(() => {
+    if (isListening) { stopListening(); return; }
+    startListening((text) => setUserInput((prev) => prev ? prev + " " + text : text));
+  }, [isListening, startListening, stopListening]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasScrolledRef = useRef(false);
@@ -42,7 +52,13 @@ export default function DiscussionPage() {
   // Smart auto-scroll: only scroll down if user is near the bottom
   const scrollToBottom = useCallback(() => {
     if (!userHasScrolledRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Use rAF to ensure DOM is painted before scrolling
+      requestAnimationFrame(() => {
+        const el = scrollContainerRef.current;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+        }
+      });
     }
   }, []);
 
@@ -745,6 +761,28 @@ Sois concis et tranche.`;
     }
   }, [config, isRunning, messages, turnNumber, totalTokens, totalInputTokens, estimatedCostUsd, callAgent, callOrchestrator]);
 
+  const submitFeedback = useCallback(() => {
+    if (rating === null || !config) return;
+    const entry = {
+      date: new Date().toISOString(),
+      topic: config.topic,
+      mode: config.mode,
+      agents: config.agents.map((a) => ({ name: a.name, model: a.model, provider: a.provider })),
+      turns: turnNumber,
+      cost: estimatedCostUsd,
+      rating,
+      feedback: feedbackText.trim() || undefined,
+    };
+    try {
+      const existing = JSON.parse(localStorage.getItem("ai-arena-feedback") || "[]");
+      existing.push(entry);
+      // Keep last 50 entries
+      if (existing.length > 50) existing.splice(0, existing.length - 50);
+      localStorage.setItem("ai-arena-feedback", JSON.stringify(existing));
+    } catch { /* ignore */ }
+    setFeedbackSent(true);
+  }, [rating, feedbackText, config, turnNumber, estimatedCostUsd]);
+
   if (!config) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -927,6 +965,93 @@ Sois concis et tranche.`;
             <div className="mx-4 my-4 rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
           )}
 
+          {/* End-of-discussion action bar inline */}
+          {!isRunning && messages.length > 0 && (
+            <div className="mx-4 my-6 animate-fade-in-up rounded-xl border border-accent/30 bg-accent/5 p-5">
+              <p className="mb-4 text-center text-sm font-semibold text-accent">Discussion terminee</p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={handleCopyAll}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm transition-colors hover:border-accent hover:text-accent"
+                >
+                  {copied ? (
+                    <>
+                      <svg className="h-4 w-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      <span className="text-success">Copie !</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                      Copier les echanges
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleDownloadMd}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm transition-colors hover:border-accent hover:text-accent"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  Telecharger .md
+                </button>
+                <button
+                  onClick={handleContinue}
+                  className="flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm text-accent transition-colors hover:bg-accent/20"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Continuer (+5 tours)
+                </button>
+                <button
+                  onClick={goToResults}
+                  className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
+                >
+                  Voir les resultats
+                </button>
+              </div>
+
+              {/* Feedback */}
+              <div className="mt-5 border-t border-accent/20 pt-4">
+                {feedbackSent ? (
+                  <p className="text-center text-xs text-success">Merci pour votre retour !</p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-center text-xs text-muted">Comment etait cette discussion ?</p>
+                    <div className="flex justify-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setRating(star)}
+                          className={`p-1 text-lg transition-colors ${
+                            rating !== null && star <= rating ? "text-amber-400" : "text-border hover:text-amber-300"
+                          }`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                    {rating !== null && (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={feedbackText}
+                          onChange={(e) => setFeedbackText(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && submitFeedback()}
+                          className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 text-xs outline-none focus:border-accent"
+                          placeholder="Un commentaire ? (optionnel)"
+                        />
+                        <button
+                          onClick={submitFeedback}
+                          className="rounded-lg bg-accent/20 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/30"
+                        >
+                          Envoyer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -971,6 +1096,20 @@ Sois concis et tranche.`;
                     : "Intervenir dans la discussion..."
               }
             />
+            {micSupported && (
+              <button
+                type="button"
+                onClick={voiceToInput}
+                className={`shrink-0 rounded-lg p-2 transition-colors ${
+                  isListening ? "bg-danger/10 text-danger animate-pulse" : "text-muted hover:text-accent hover:bg-accent/10"
+                }`}
+                title={isListening ? "Arreter l'ecoute" : "Dicter un message"}
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8m-4-12a3 3 0 00-3 3v4a3 3 0 006 0V8a3 3 0 00-3-3z" />
+                </svg>
+              </button>
+            )}
             <button
               onClick={handleUserIntervention}
               disabled={!userInput.trim()}
