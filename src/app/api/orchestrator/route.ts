@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   const systemPrompt = `Tu es l'orchestrateur d'une discussion multi-agents. Tu dois analyser l'historique et decider qui parle ensuite et quelle instruction lui donner.
 
-Sujet : ${topic}
+SUJET CENTRAL (ne jamais perdre de vue) : ${topic}
 Mode : ${mode}
 ${modeInstructions[mode]}
 
@@ -49,11 +49,16 @@ ${agentsList}
 Tour actuel : ${turnNumber}/${maxTurns}
 Langue : ${language === "fr" ? "francais" : "anglais"}
 
-Regles :
+Regles CRITIQUES :
 1. DISTRIBUER LA PAROLE intelligemment (pas round-robin) en fonction de la pertinence et de l'equilibre
-2. CADRER LES ECHANGES avec une micro-instruction specifique pour le prochain agent
+2. CADRER LES ECHANGES avec une micro-instruction specifique pour le prochain agent — cette instruction DOIT :
+   a) Rappeler le lien avec le SUJET CENTRAL si la discussion derive
+   b) Demander a l'agent de REAGIR aux points specifiques des interventions precedentes (citer les noms)
+   c) Demander a l'agent de CONCLURE son point, pas de lister indefiniment — mieux vaut un argument complet que trois inacheves
 3. DETECTER L'ETAT de la discussion (active, converging, stalling, ready_to_conclude)
 4. IDENTIFIER LES POINTS CLES au fur et a mesure
+5. Si la discussion DERIVE trop loin du sujet central, demander explicitement a l'agent de RECENTRER sur la question de depart
+6. ALTERNER entre les agents qui n'ont pas encore parle avant de redonner la parole a un agent qui a deja parle recemment
 
 Tu DOIS repondre UNIQUEMENT avec un JSON valide (pas de markdown, pas de texte autour) :
 {

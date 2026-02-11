@@ -39,10 +39,16 @@ export default function SetupPage() {
   const [suggestions, setSuggestions] = useState<{ id: string; reason: string; suggestedStance?: string }[]>([]);
   const [showExpertPool, setShowExpertPool] = useState(false);
   const [expertFilter, setExpertFilter] = useState("");
+  const [feedbackHistory, setFeedbackHistory] = useState<{ date: string; topic: string; mode: string; rating: number; feedback?: string; cost: number; turns: number }[]>([]);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
     setHistory(getSavedSessions());
     setCustomTemplates(getCustomTemplates());
+    try {
+      const fb = JSON.parse(localStorage.getItem("ai-arena-feedback") || "[]");
+      setFeedbackHistory(fb.reverse());
+    } catch { /* ignore */ }
   }, []);
 
   const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(language === "fr" ? "fr-FR" : "en-US");
@@ -366,6 +372,51 @@ export default function SetupPage() {
                 <p className="text-center text-xs text-muted">et {history.length - 5} autre{history.length - 5 > 1 ? "s" : ""} discussion{history.length - 5 > 1 ? "s" : ""}...</p>
               )}
             </div>
+          </section>
+        )}
+
+        {/* Feedback History */}
+        {feedbackHistory.length > 0 && (
+          <section className="mb-8">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Avis et feedbacks</h2>
+              <button
+                onClick={() => setShowFeedback(!showFeedback)}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+              >
+                {showFeedback ? "Masquer" : `Voir (${feedbackHistory.length})`}
+              </button>
+            </div>
+            {!showFeedback && (
+              <div className="flex items-center gap-4 text-sm text-muted">
+                <span>Note moyenne : <span className="font-semibold text-amber-400">{"★".repeat(Math.round(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length))}</span> ({(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length).toFixed(1)}/5)</span>
+                <span>·</span>
+                <span>{feedbackHistory.length} avis</span>
+              </div>
+            )}
+            {showFeedback && (
+              <div className="space-y-2">
+                {feedbackHistory.map((fb, i) => (
+                  <div key={i} className="rounded-xl border border-border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400">{"★".repeat(fb.rating)}{"☆".repeat(5 - fb.rating)}</span>
+                        <span className="text-xs text-muted">{new Date(fb.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-muted">
+                        <span>{fb.mode}</span>
+                        <span>·</span>
+                        <span>{fb.turns} tours</span>
+                        <span>·</span>
+                        <span className="font-mono">${fb.cost.toFixed(4)}</span>
+                      </div>
+                    </div>
+                    <p className="mt-1 truncate text-sm">{fb.topic}</p>
+                    {fb.feedback && <p className="mt-1 text-xs text-muted italic">&ldquo;{fb.feedback}&rdquo;</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 

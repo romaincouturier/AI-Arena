@@ -325,18 +325,37 @@ Sois concis et tranche.`;
       const contextHistory = buildSlidingContext(allMessages, 25);
       const lang = config.rules.language === "fr" ? "francais" : "anglais";
 
-      const prompts: Record<string, { system: string; instruction: string }> = {
+      const prompts: Record<string, { system: string; instruction: string; tokens: number }> = {
         synthesis: {
-          system: `Tu es un expert en synthese de discussions. Produis une synthese structuree et actionnable. Identifie les points cles, les zones de consensus, les desaccords, et les conclusions principales. Reponds en ${lang}.`,
-          instruction: "Produis la synthese finale de cette discussion.",
+          system: `Tu es un expert en synthese de discussions de groupe. Produis une synthese STRUCTUREE et ACTIONNABLE. Reponds en ${lang}.
+
+Ta synthese doit contenir :
+1. RESUME EXECUTIF (3-5 lignes) : la reponse a la question de depart en une phrase, puis les conclusions cles
+2. POINTS DE CONSENSUS : ce sur quoi tous les experts sont d'accord
+3. POINTS DE DESACCORD : les positions divergentes et pourquoi
+4. RECOMMANDATIONS CONCRETES : les 3-5 actions a retenir
+5. QUESTIONS OUVERTES : ce qui reste a explorer
+
+IMPORTANT : Si un livrable a deja ete produit, NE PAS repeter son contenu. Concentre-toi sur les dynamiques de la discussion et les meta-enseignements.`,
+          instruction: `Produis la synthese finale de cette discussion sur "${config.topic}". Rappel : reponds au SUJET CENTRAL, pas aux tangentes.`,
+          tokens: 2500,
         },
         deliverable: {
-          system: `Tu es un expert en redaction. A partir de la discussion suivante, produis le LIVRABLE FINAL demande. Le document doit etre structure, complet et directement utilisable. Integre les meilleures contributions de chaque participant. Reponds en ${lang}.`,
-          instruction: `Produis le livrable final sur le sujet "${config.topic}". Le document doit etre structure, complet et integrer les contributions des participants.`,
+          system: `Tu es un expert en redaction de documents professionnels. A partir de la discussion suivante, produis le LIVRABLE FINAL demande. Reponds en ${lang}.
+
+REGLES CRITIQUES pour le livrable :
+1. Le document DOIT repondre directement au SUJET CENTRAL de la discussion
+2. Structure avec des titres clairs (##), des sous-sections, et des points actionables
+3. Integre les MEILLEURES contributions de chaque participant — cite-les quand c'est pertinent
+4. Le document doit etre COMPLET et DIRECTEMENT UTILISABLE — pas de sections tronquees
+5. Termine par des recommandations concretes et des prochaines etapes
+6. Ne liste pas tout ce qui a ete dit — SYNTHETISE et STRUCTURE les idees en un document coherent`,
+          instruction: `Produis le livrable final et COMPLET sur le sujet "${config.topic}". Le document doit etre structure, exhaustif et directement exploitable. TERMINE toutes les sections — aucune section ne doit etre laissee vide ou tronquee.`,
+          tokens: 4000,
         },
       };
 
-      const { system, instruction } = prompts[outputType];
+      const { system, instruction, tokens } = prompts[outputType];
 
       setCurrentSpeaker(outputType === "deliverable" ? "deliverable" : "synthesis");
       setStreamingContent("");
@@ -352,7 +371,7 @@ Sois concis et tranche.`;
           turnInstruction: instruction,
           history: contextHistory,
           topic: config.topic,
-          maxTokens: 1500,
+          maxTokens: tokens,
         }),
       });
 
@@ -1174,12 +1193,13 @@ ${agent.stance ? `Ta position initiale : ${agent.stance}` : ""}
 ${expertContext.length > 0 ? `\n${expertContext.join("\n")}` : ""}
 
 Regles de la discussion :
-- Reponds de maniere concise et percutante, mais termine toujours tes idees
-- Adresse-toi directement aux autres participants par leur nom
-- Fais avancer la discussion : ne repete pas ce qui a ete dit
-- Si tu es d'accord avec un point, dis-le brievement et ajoute de la valeur
-- Si tu n'es pas d'accord, argumente avec des faits ou un raisonnement
-- Utilise tes frameworks de reference quand c'est pertinent, sans les forcer
+- TERMINE TOUJOURS tes idees — mieux vaut 2 arguments complets que 5 inacheves. Si tu manques de place, conclus plutot que de laisser en suspens.
+- REAGIS aux interventions precedentes : cite les noms des autres participants, dis si tu es d'accord ou non, et POURQUOI.
+- NE REPETE PAS ce qui a ete dit. Si un point a deja ete fait, dis "comme l'a dit [nom]" et ajoute de la valeur.
+- RELIE toujours tes points au SUJET CENTRAL de la discussion. Ne pars pas dans des tangentes.
+- Structure ta reponse : commence par ta position claire, puis developpe 2-3 arguments cles. Pas de listes interminables.
+- Adresse-toi directement aux autres participants par leur nom.
+- Utilise tes frameworks de reference quand c'est pertinent, sans les forcer.
 - Langue : ${config.rules.language === "fr" ? "francais" : "anglais"}${filesContext}`;
 }
 

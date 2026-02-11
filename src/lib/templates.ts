@@ -37,7 +37,7 @@ export const TEMPLATES: Template[] = [
     ],
     rules: {
       maxTurns: 12,
-      maxTokensPerTurn: 800,
+      maxTokensPerTurn: 1200,
       language: "fr",
     },
   },
@@ -82,7 +82,7 @@ export const TEMPLATES: Template[] = [
     ],
     rules: {
       maxTurns: 16,
-      maxTokensPerTurn: 800,
+      maxTokensPerTurn: 1200,
       language: "fr",
     },
   },
@@ -119,7 +119,7 @@ export const TEMPLATES: Template[] = [
     ],
     rules: {
       maxTurns: 15,
-      maxTokensPerTurn: 800,
+      maxTokensPerTurn: 1200,
       language: "fr",
     },
   },
@@ -156,7 +156,7 @@ export const TEMPLATES: Template[] = [
     ],
     rules: {
       maxTurns: 12,
-      maxTokensPerTurn: 1000,
+      maxTokensPerTurn: 1500,
       language: "fr",
     },
   },
@@ -193,7 +193,7 @@ export const TEMPLATES: Template[] = [
     ],
     rules: {
       maxTurns: 10,
-      maxTokensPerTurn: 1000,
+      maxTokensPerTurn: 1500,
       language: "fr",
     },
   },
@@ -233,7 +233,7 @@ export const TEMPLATES: Template[] = [
     ],
     rules: {
       maxTurns: 14,
-      maxTokensPerTurn: 800,
+      maxTokensPerTurn: 1200,
       language: "fr",
     },
   },
@@ -270,7 +270,7 @@ export const TEMPLATES: Template[] = [
     ],
     rules: {
       maxTurns: 16,
-      maxTokensPerTurn: 1000,
+      maxTokensPerTurn: 1500,
       language: "fr",
     },
   },
@@ -307,7 +307,7 @@ export const TEMPLATES: Template[] = [
     ],
     rules: {
       maxTurns: 18,
-      maxTokensPerTurn: 800,
+      maxTokensPerTurn: 1200,
       language: "fr",
     },
   },
