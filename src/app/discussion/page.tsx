@@ -8,6 +8,7 @@ import { buildSlidingContext } from "@/lib/store";
 import MessageBubble from "@/components/MessageBubble";
 import TypingIndicator from "@/components/TypingIndicator";
 import { exportToMarkdown, downloadMarkdown } from "@/lib/export";
+import { saveSession } from "@/lib/history";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { v4 as uuidv4 } from "uuid";
 
@@ -517,6 +518,9 @@ Sois concis et tranche.`;
         },
       };
       sessionStorage.setItem("ai-arena-result", JSON.stringify(result));
+
+      // Auto-save to history
+      try { saveSession(config, result); } catch { /* ignore quota errors */ }
 
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") { /* ok */ }
@@ -1140,6 +1144,23 @@ function buildSystemPrompt(agent: SessionConfig["agents"][0], config: SessionCon
     deliverable: "Discussion orientee vers la production d'un livrable concret. Concentre-toi sur les contributions constructives.",
   };
 
+  // Rich expert context
+  const expertContext: string[] = [];
+  if (agent.frameworks && agent.frameworks.length > 0) {
+    expertContext.push(`Tes frameworks et references : ${agent.frameworks.join(", ")}`);
+  }
+  if (agent.biases) {
+    expertContext.push(`Tes biais connus (sois-en conscient) : ${agent.biases}`);
+  }
+  if (agent.style) {
+    expertContext.push(`Ton style de communication : ${agent.style}`);
+  }
+
+  // Context files
+  const filesContext = agent.contextFiles && agent.contextFiles.length > 0
+    ? `\n\nDocuments de reference que tu as lu :\n${agent.contextFiles.map((f) => `--- ${f.name} ---\n${f.content.slice(0, 8000)}`).join("\n\n")}`
+    : "";
+
   return `Tu participes a une discussion de groupe sur le sujet suivant :
 ${config.topic}
 
@@ -1150,6 +1171,7 @@ Mode : ${modeInstr[config.mode]}
 Ton role : ${agent.role || "Participant"}
 Ta personnalite : ${agent.personality || "Neutre et constructif"}
 ${agent.stance ? `Ta position initiale : ${agent.stance}` : ""}
+${expertContext.length > 0 ? `\n${expertContext.join("\n")}` : ""}
 
 Regles de la discussion :
 - Reponds de maniere concise et percutante, mais termine toujours tes idees
@@ -1157,7 +1179,8 @@ Regles de la discussion :
 - Fais avancer la discussion : ne repete pas ce qui a ete dit
 - Si tu es d'accord avec un point, dis-le brievement et ajoute de la valeur
 - Si tu n'es pas d'accord, argumente avec des faits ou un raisonnement
-- Langue : ${config.rules.language === "fr" ? "francais" : "anglais"}`;
+- Utilise tes frameworks de reference quand c'est pertinent, sans les forcer
+- Langue : ${config.rules.language === "fr" ? "francais" : "anglais"}${filesContext}`;
 }
 
 function computeTokensPerAgent(messages: Message[]): Record<string, number> {
