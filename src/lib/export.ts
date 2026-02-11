@@ -5,6 +5,8 @@ export function exportToMarkdown(config: SessionConfig, result: SessionResult): 
 
   lines.push(`# AI Arena - Transcript de discussion`);
   lines.push("");
+  lines.push(`> **AI Arena** est une arene de discussion multi-agents ou des IA de differents fournisseurs (Claude, GPT, Gemini) debattent, collaborent et produisent des livrables sur n'importe quel sujet — le tout orchestre en temps reel par une IA dediee. Chaque agent incarne un expert avec sa personnalite, ses frameworks de reference et ses biais, pour des discussions riches et complementaires.`);
+  lines.push("");
   lines.push(`## Sujet`);
   lines.push("");
   lines.push(config.topic);
