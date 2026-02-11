@@ -8,6 +8,7 @@ import { buildSlidingContext } from "@/lib/store";
 import MessageBubble from "@/components/MessageBubble";
 import TypingIndicator from "@/components/TypingIndicator";
 import { exportToMarkdown, downloadMarkdown } from "@/lib/export";
+import { saveSession } from "@/lib/history";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { v4 as uuidv4 } from "uuid";
 
@@ -517,6 +518,9 @@ Sois concis et tranche.`;
         },
       };
       sessionStorage.setItem("ai-arena-result", JSON.stringify(result));
+
+      // Auto-save to history
+      try { saveSession(config, result); } catch { /* ignore quota errors */ }
 
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") { /* ok */ }

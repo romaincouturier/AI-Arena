@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
-import type { SessionConfig, AgentConfig, DiscussionMode, UserMode, ApiKeys } from "@/lib/types";
+import type { SessionConfig, AgentConfig, DiscussionMode, UserMode, ApiKeys, Template } from "@/lib/types";
 import { AGENT_COLORS } from "@/lib/types";
 import { TEMPLATES } from "@/lib/templates";
+import { getSavedSessions, deleteSession, type SavedSession } from "@/lib/history";
+import { getCustomTemplates, saveCustomTemplate, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
 import AgentCard from "@/components/AgentCard";
 import { createDefaultAgent } from "@/lib/store";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -27,6 +29,16 @@ export default function SetupPage() {
     createDefaultAgent(0),
     createDefaultAgent(1),
   ]);
+  const [history, setHistory] = useState<SavedSession[]>([]);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateDesc, setNewTemplateDesc] = useState("");
+
+  useEffect(() => {
+    setHistory(getSavedSessions());
+    setCustomTemplates(getCustomTemplates());
+  }, []);
 
   const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(language === "fr" ? "fr-FR" : "en-US");
 
@@ -52,7 +64,7 @@ export default function SetupPage() {
   };
 
   const applyTemplate = (templateId: string) => {
-    const template = TEMPLATES.find((t) => t.id === templateId);
+    const template: Template | undefined = TEMPLATES.find((t) => t.id === templateId) || customTemplates.find((t) => t.id === templateId);
     if (!template) return;
     setSelectedTemplate(templateId);
     setMode(template.mode);
@@ -66,6 +78,55 @@ export default function SetupPage() {
         color: a.color || AGENT_COLORS[i % AGENT_COLORS.length],
       }))
     );
+  };
+
+  const handleSaveTemplate = () => {
+    if (!newTemplateName.trim()) return;
+    const id = "custom-" + Date.now().toString(36);
+    const template = saveCustomTemplate({
+      id,
+      name: newTemplateName.trim(),
+      description: newTemplateDesc.trim() || `Template personnalise avec ${agents.length} agents`,
+      mode,
+      agents: agents.map(({ id: _id, ...rest }) => rest),
+      rules: { maxTurns, maxTokensPerTurn, language },
+    });
+    setCustomTemplates([template, ...customTemplates.filter((t) => t.id !== id)]);
+    setShowSaveTemplate(false);
+    setNewTemplateName("");
+    setNewTemplateDesc("");
+    setSelectedTemplate(id);
+  };
+
+  const handleDeleteCustomTemplate = (id: string) => {
+    deleteCustomTemplate(id);
+    setCustomTemplates((prev) => prev.filter((t) => t.id !== id));
+    if (selectedTemplate === id) setSelectedTemplate(null);
+  };
+
+  const handleViewSession = (session: SavedSession) => {
+    sessionStorage.setItem("ai-arena-config", JSON.stringify(session.config));
+    sessionStorage.setItem("ai-arena-result", JSON.stringify(session.result));
+    sessionStorage.setItem("ai-arena-start-time", String(new Date(session.date).getTime()));
+    router.push("/results");
+  };
+
+  const handleReuseSession = (session: SavedSession) => {
+    const c = session.config;
+    setTopic(c.topic);
+    setAdditionalContext(c.additionalContext || "");
+    setMode(c.mode);
+    setUserMode(c.userMode);
+    setMaxTurns(c.rules.maxTurns);
+    setMaxTokensPerTurn(c.rules.maxTokensPerTurn);
+    setLanguage(c.rules.language);
+    setAgents(c.agents.map((a, i) => ({ ...a, id: uuidv4(), color: a.color || AGENT_COLORS[i % AGENT_COLORS.length] })));
+    setSelectedTemplate(null);
+  };
+
+  const handleDeleteSession = (id: string) => {
+    deleteSession(id);
+    setHistory((prev) => prev.filter((s) => s.id !== id));
   };
 
   // At least one provider key + topic + agents named
@@ -183,10 +244,172 @@ export default function SetupPage() {
           </div>
         </section>
 
+        {/* History */}
+        {history.length > 0 && (
+          <section className="mb-8">
+            <h2 className="mb-3 text-lg font-semibold">Historique</h2>
+            <p className="mb-3 text-xs text-muted">Vos discussions precedentes. Cliquez pour revoir les resultats ou reutiliser la configuration.</p>
+            <div className="space-y-2">
+              {history.slice(0, 5).map((session) => (
+                <div key={session.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-card-hover">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${
+                    session.mode === "decision" ? "bg-amber-500" : session.mode === "deliverable" ? "bg-emerald-500" : "bg-accent"
+                  }`}>
+                    {session.mode === "decision" ? "D" : session.mode === "deliverable" ? "L" : "E"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{session.topic}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-muted">
+                      <span>{new Date(session.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                      <span>·</span>
+                      <span>{session.agentNames.join(", ")}</span>
+                      <span>·</span>
+                      <span>{session.turns} tours</span>
+                      <span>·</span>
+                      <span className="font-mono">${session.cost.toFixed(4)}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      onClick={() => handleViewSession(session)}
+                      className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
+                      title="Voir les resultats"
+                    >
+                      Resultats
+                    </button>
+                    <button
+                      onClick={() => handleReuseSession(session)}
+                      className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
+                      title="Reutiliser cette configuration"
+                    >
+                      Reutiliser
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSession(session.id)}
+                      className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:border-danger hover:text-danger"
+                      title="Supprimer"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {history.length > 5 && (
+                <p className="text-center text-xs text-muted">et {history.length - 5} autre{history.length - 5 > 1 ? "s" : ""} discussion{history.length - 5 > 1 ? "s" : ""}...</p>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Templates */}
         <section className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold">Templates</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Templates</h2>
+            <button
+              onClick={() => setShowSaveTemplate(!showSaveTemplate)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+            >
+              + Sauvegarder comme template
+            </button>
+          </div>
           <p className="mb-3 text-xs text-muted">Configurations pre-definies pour demarrer rapidement. Cliquez pour appliquer : les agents, le mode et les parametres seront pre-remplis.</p>
+
+          {/* Save template form */}
+          {showSaveTemplate && (
+            <div className="mb-4 rounded-xl border border-accent/30 bg-accent/5 p-4">
+              <h3 className="mb-3 text-sm font-semibold text-accent">Sauvegarder la configuration actuelle</h3>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
+                  placeholder="Nom du template"
+                />
+                <input
+                  type="text"
+                  value={newTemplateDesc}
+                  onChange={(e) => setNewTemplateDesc(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
+                  placeholder="Description (optionnel)"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveTemplate}
+                    disabled={!newTemplateName.trim()}
+                    className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+                  >
+                    Sauvegarder
+                  </button>
+                  <button
+                    onClick={() => setShowSaveTemplate(false)}
+                    className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:text-foreground"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Custom templates */}
+          {customTemplates.length > 0 && (
+            <div className="mb-4">
+              <h3 className="mb-2 text-xs font-medium text-muted uppercase">Mes templates</h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {customTemplates.map((template) => {
+                  const isSelected = selectedTemplate === template.id;
+                  return (
+                    <div key={template.id} className="relative">
+                      <button
+                        onClick={() => applyTemplate(template.id)}
+                        className={`w-full rounded-xl border p-4 text-left transition-all ${
+                          isSelected
+                            ? "border-accent bg-accent/10 ring-1 ring-accent"
+                            : "border-border bg-card hover:border-accent hover:bg-card-hover"
+                        }`}
+                      >
+                        <div className="mb-1 flex items-center gap-2">
+                          {isSelected && (
+                            <svg className="h-4 w-4 shrink-0 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          <span className={`text-sm font-semibold ${isSelected ? "text-accent" : ""}`}>{template.name}</span>
+                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                            template.mode === "decision"
+                              ? "bg-amber-500/10 text-amber-500"
+                              : template.mode === "deliverable"
+                                ? "bg-emerald-500/10 text-emerald-500"
+                                : "bg-accent/10 text-accent"
+                          }`}>
+                            {modeLabel[template.mode]}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted">{template.description}</div>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCustomTemplate(template.id)}
+                        className="absolute right-2 top-2 rounded-md p-1 text-muted opacity-0 transition-all hover:text-danger group-hover:opacity-100 [div:hover>&]:opacity-100"
+                        title="Supprimer ce template"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Built-in templates */}
+          {customTemplates.length > 0 && (
+            <h3 className="mb-2 text-xs font-medium text-muted uppercase">Templates integres</h3>
+          )}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {TEMPLATES.map((template) => {
               const isSelected = selectedTemplate === template.id;
