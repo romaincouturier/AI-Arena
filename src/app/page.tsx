@@ -8,6 +8,7 @@ import { AGENT_COLORS } from "@/lib/types";
 import { TEMPLATES } from "@/lib/templates";
 import { getSavedSessions, deleteSession, type SavedSession } from "@/lib/history";
 import { getCustomTemplates, saveCustomTemplate, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
+import { EXPERT_POOL, type ExpertProfile } from "@/lib/experts";
 import AgentCard from "@/components/AgentCard";
 import { createDefaultAgent } from "@/lib/store";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -34,6 +35,10 @@ export default function SetupPage() {
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDesc, setNewTemplateDesc] = useState("");
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState<{ id: string; reason: string; suggestedStance?: string }[]>([]);
+  const [showExpertPool, setShowExpertPool] = useState(false);
+  const [expertFilter, setExpertFilter] = useState("");
 
   useEffect(() => {
     setHistory(getSavedSessions());
@@ -128,6 +133,67 @@ export default function SetupPage() {
     deleteSession(id);
     setHistory((prev) => prev.filter((s) => s.id !== id));
   };
+
+  const expertToAgent = (expert: ExpertProfile, index: number, stance?: string): AgentConfig => ({
+    id: uuidv4(),
+    name: expert.name,
+    provider: "claude",
+    model: "claude-haiku-4-20250414",
+    role: `${expert.title} - ${expert.expertise.slice(0, 80)}`,
+    personality: expert.personality,
+    stance: (stance as AgentConfig["stance"]) || expert.defaultStance,
+    color: AGENT_COLORS[index % AGENT_COLORS.length],
+    expertId: expert.id,
+    frameworks: expert.frameworks,
+    biases: expert.biases,
+    style: expert.style,
+  });
+
+  const handleSuggestExperts = async () => {
+    if (!topic.trim() || !apiKeys.claude?.trim()) return;
+    setIsSuggesting(true);
+    setSuggestions([]);
+    try {
+      const res = await fetch("/api/suggest-experts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKeys.claude, topic, mode, language }),
+      });
+      const data = await res.json();
+      if (data.experts && data.experts.length > 0) {
+        setSuggestions(data.experts);
+        // Auto-apply suggestions
+        const newAgents = data.experts.map((s: { id: string; suggestedStance?: string }, i: number) => {
+          const expert = EXPERT_POOL.find((e) => e.id === s.id);
+          if (!expert) return createDefaultAgent(i);
+          return expertToAgent(expert, i, s.suggestedStance);
+        });
+        setAgents(newAgents);
+        setSelectedTemplate(null);
+        if (data.suggestedMode && data.suggestedMode !== mode) {
+          setMode(data.suggestedMode);
+        }
+      }
+    } catch { /* ignore */ }
+    setIsSuggesting(false);
+  };
+
+  const addExpertFromPool = (expert: ExpertProfile) => {
+    if (agents.length >= 6) return;
+    setAgents([...agents, expertToAgent(expert, agents.length)]);
+    setShowExpertPool(false);
+    setSelectedTemplate(null);
+  };
+
+  const filteredExperts = expertFilter.trim()
+    ? EXPERT_POOL.filter((e) => {
+        const q = expertFilter.toLowerCase();
+        return e.name.toLowerCase().includes(q) ||
+          e.title.toLowerCase().includes(q) ||
+          e.domain.includes(q) ||
+          e.tags.some((t) => t.includes(q));
+      })
+    : EXPERT_POOL;
 
   // At least one provider key + topic + agents named
   const hasRequiredKey = agents.every((a) => {
@@ -494,6 +560,67 @@ export default function SetupPage() {
               </>
             )}
           </div>
+
+          {/* Suggest experts button */}
+          {topic.trim().length > 5 && apiKeys.claude?.trim() && (
+            <div className="mt-4">
+              <button
+                onClick={handleSuggestExperts}
+                disabled={isSuggesting}
+                className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-5 py-2.5 text-sm font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-50"
+              >
+                {isSuggesting ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Analyse du sujet en cours...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    Suggerer des experts pour ce sujet
+                  </>
+                )}
+              </button>
+              <p className="mt-1 text-[10px] text-muted">L&apos;IA analysera votre sujet et proposera les meilleurs experts du pool ({EXPERT_POOL.length} disponibles)</p>
+            </div>
+          )}
+
+          {/* Suggestion results */}
+          {suggestions.length > 0 && (
+            <div className="mt-4 rounded-xl border border-accent/20 bg-accent/5 p-4">
+              <h3 className="mb-2 text-sm font-semibold text-accent">Experts suggeres</h3>
+              <div className="space-y-2">
+                {suggestions.map((s) => {
+                  const expert = EXPERT_POOL.find((e) => e.id === s.id);
+                  if (!expert) return null;
+                  return (
+                    <div key={s.id} className="flex items-start gap-3 rounded-lg bg-card p-2.5">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
+                        {expert.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{expert.name}</span>
+                          <span className="rounded-full bg-border px-1.5 py-0.5 text-[9px] text-muted">{expert.domain}</span>
+                          {s.suggestedStance && s.suggestedStance !== "neutre" && (
+                            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${s.suggestedStance === "pour" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
+                              {s.suggestedStance}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted">{s.reason}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[10px] text-muted">Ces experts ont ete pre-selectionnes. Modifiez-les dans les options avancees ou ajoutez-en depuis le pool.</p>
+            </div>
+          )}
         </section>
 
         {/* Advanced toggle */}
@@ -585,16 +712,82 @@ export default function SetupPage() {
         <section className="mb-8">
           <div className="mb-1 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Participants ({agents.length}/6)</h2>
-            {agents.length < 6 && (
-              <button
-                onClick={addAgent}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
-              >
-                + Ajouter
-              </button>
-            )}
+            <div className="flex gap-2">
+              {agents.length < 6 && (
+                <>
+                  <button
+                    onClick={() => setShowExpertPool(!showExpertPool)}
+                    className="rounded-lg border border-accent/30 px-3 py-1.5 text-sm text-accent transition-colors hover:bg-accent/10"
+                  >
+                    + Expert du pool
+                  </button>
+                  <button
+                    onClick={addAgent}
+                    className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+                  >
+                    + Agent vide
+                  </button>
+                </>
+              )}
+            </div>
           </div>
           <p className="mb-3 text-xs text-muted">Les agents IA qui participeront a la discussion. Minimum 2, maximum 6. Chacun peut utiliser un provider et modele differents.</p>
+
+          {/* Expert pool browser */}
+          {showExpertPool && (
+            <div className="mb-4 rounded-xl border border-accent/30 bg-accent/5 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-accent">Pool d&apos;experts ({EXPERT_POOL.length})</h3>
+                <button onClick={() => setShowExpertPool(false)} className="text-xs text-muted hover:text-foreground">Fermer</button>
+              </div>
+              <input
+                type="text"
+                value={expertFilter}
+                onChange={(e) => setExpertFilter(e.target.value)}
+                className="mb-3 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
+                placeholder="Rechercher par nom, domaine, expertise, tag..."
+              />
+              <div className="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
+                {filteredExperts.map((expert) => {
+                  const alreadyAdded = agents.some((a) => a.expertId === expert.id);
+                  return (
+                    <button
+                      key={expert.id}
+                      onClick={() => !alreadyAdded && addExpertFromPool(expert)}
+                      disabled={alreadyAdded || agents.length >= 6}
+                      className={`rounded-lg border p-3 text-left transition-all ${
+                        alreadyAdded
+                          ? "border-accent/30 bg-accent/5 opacity-60"
+                          : "border-border bg-card hover:border-accent hover:bg-card-hover"
+                      } disabled:cursor-not-allowed`}
+                    >
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-sm font-medium">{expert.name}</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                          expert.domain === "tech" ? "bg-blue-500/10 text-blue-500"
+                            : expert.domain === "business" ? "bg-amber-500/10 text-amber-500"
+                              : expert.domain === "creative" ? "bg-violet-500/10 text-violet-500"
+                                : expert.domain === "human" ? "bg-emerald-500/10 text-emerald-500"
+                                  : expert.domain === "data" ? "bg-cyan-500/10 text-cyan-500"
+                                    : expert.domain === "academic" ? "bg-rose-500/10 text-rose-500"
+                                      : "bg-border text-muted"
+                        }`}>
+                          {expert.domain}
+                        </span>
+                        {alreadyAdded && <span className="text-[9px] text-accent">ajoute</span>}
+                      </div>
+                      <p className="text-[10px] text-muted">{expert.title}</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {expert.tags.slice(0, 4).map((tag) => (
+                          <span key={tag} className="rounded bg-border/50 px-1 py-0.5 text-[8px] text-muted">{tag}</span>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             {agents.map((agent, index) => (
               <AgentCard

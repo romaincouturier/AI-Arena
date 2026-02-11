@@ -8,6 +8,11 @@ export type Stance = "pour" | "contre" | "neutre";
 
 export type DiscussionState = "active" | "converging" | "stalling" | "ready_to_conclude";
 
+export interface ContextFile {
+  name: string;
+  content: string;
+}
+
 export interface AgentConfig {
   id: string;
   name: string;
@@ -18,6 +23,11 @@ export interface AgentConfig {
   stance?: Stance;
   systemPrompt?: string;
   color: string;
+  expertId?: string;
+  frameworks?: string[];
+  biases?: string;
+  style?: string;
+  contextFiles?: ContextFile[];
   constraints?: {
     maxTokensPerTurn?: number;
     mustCiteSources?: boolean;
