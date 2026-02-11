@@ -77,7 +77,7 @@ async function streamClaude(
   const client = new Anthropic({ apiKey });
   const stream = await client.messages.stream({
     model,
-    max_tokens: maxTokens || 500,
+    max_tokens: maxTokens || 1200,
     system: systemPrompt,
     messages: [{ role: "user", content: userContent }],
   });
@@ -120,7 +120,7 @@ async function streamOpenAI(
   const client = new OpenAI({ apiKey });
   const stream = await client.chat.completions.create({
     model,
-    max_tokens: maxTokens || 500,
+    max_tokens: maxTokens || 1200,
     stream: true,
     stream_options: { include_usage: true },
     messages: [
@@ -171,7 +171,7 @@ async function streamGemini(
   });
   const stream = await client.chat.completions.create({
     model,
-    max_tokens: maxTokens || 500,
+    max_tokens: maxTokens || 1200,
     stream: true,
     messages: [
       { role: "system", content: systemPrompt },
