@@ -138,7 +138,7 @@ export default function SetupPage() {
     id: uuidv4(),
     name: expert.name,
     provider: "claude",
-    model: "claude-haiku-4-20250414",
+    model: "claude-haiku-4-5-20251001",
     role: `${expert.title} - ${expert.expertise.slice(0, 80)}`,
     personality: expert.personality,
     stance: (stance as AgentConfig["stance"]) || expert.defaultStance,
