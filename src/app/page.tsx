@@ -22,6 +22,7 @@ export default function SetupPage() {
   const [apiKeys, setApiKeys] = useState<ApiKeys>({ claude: "", openai: "", gemini: "" });
   const [showApiKeys, setShowApiKeys] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [agents, setAgents] = useState<AgentConfig[]>([
     createDefaultAgent(0),
     createDefaultAgent(1),
@@ -272,6 +273,21 @@ export default function SetupPage() {
           </div>
         </section>
 
+        {/* Advanced toggle */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-2 text-sm text-muted transition-colors hover:text-foreground"
+          >
+            <svg className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Options avancees
+            <span className="text-xs text-muted">(parametres, agents, modeles)</span>
+          </button>
+        </div>
+
+        {showAdvanced && <>
         {/* Discussion settings */}
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold">Parametres</h2>
@@ -371,6 +387,7 @@ export default function SetupPage() {
             ))}
           </div>
         </section>
+        </>}
 
         {/* Start button */}
         <div className="sticky bottom-0 border-t border-border bg-background py-4">

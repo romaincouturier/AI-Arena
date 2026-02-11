@@ -10,7 +10,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Defenseur",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Defenseur de la position",
         personality: "Convaincu, argumente avec passion, cite des exemples concrets",
         stance: "pour",
@@ -19,7 +19,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Opposant",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Critique de la position",
         personality: "Sceptique, releve les failles, propose des contre-arguments solides",
         stance: "contre",
@@ -28,7 +28,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Moderateur",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Moderateur du debat",
         personality: "Neutre, structure les echanges, synthetise les points cles, relance le debat",
         stance: "neutre",
@@ -50,7 +50,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "CEO",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Directeur General - vision strategique",
         personality: "Visionnaire, focuse sur la croissance et la mission, tranche les debats",
         color: "#3B82F6",
@@ -58,7 +58,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "CTO",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Directeur Technique - faisabilite et architecture",
         personality: "Pragmatique, evalue la complexite technique, alerte sur les risques",
         color: "#EF4444",
@@ -66,7 +66,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "CFO",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Directeur Financier - rentabilite et budget",
         personality: "Prudent, analyse les couts, demande des ROI, challenge les investissements",
         color: "#F59E0B",
@@ -74,7 +74,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "CMO",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Directeur Marketing - marche et utilisateurs",
         personality: "Centre client, data-driven, identifie les opportunites de marche",
         color: "#8B5CF6",
@@ -95,7 +95,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Visionnaire",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Penseur hors-cadre",
         personality: "Creatif, propose des idees radicales, fait des analogies inattendues, repousse les limites",
         color: "#8B5CF6",
@@ -103,7 +103,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Pragmatique",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Expert en execution",
         personality: "Concret, transforme les idees en plans d'action, identifie ce qui est faisable rapidement",
         color: "#10B981",
@@ -111,7 +111,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Avocat du diable",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Challenger systematique",
         personality: "Provocateur constructif, questionne chaque hypothese, pousse a approfondir",
         color: "#EF4444",
@@ -132,7 +132,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Architecte",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Architecte logiciel senior",
         personality: "Methodique, pense systemes et scalabilite, privilegie les standards eprouves",
         color: "#3B82F6",
@@ -140,7 +140,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Dev Senior",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Developpeur senior full-stack",
         personality: "Pratique, base ses avis sur l'experience terrain, alerte sur la dette technique",
         color: "#10B981",
@@ -148,7 +148,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "SRE",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Site Reliability Engineer",
         personality: "Focuse sur la fiabilite, la performance et les operations, pense monitoring et incidents",
         color: "#F59E0B",
@@ -169,7 +169,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Redacteur",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Redacteur principal",
         personality: "Eloquent, structure ses idees clairement, produit des brouillons solides",
         color: "#3B82F6",
@@ -177,7 +177,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Editeur",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Editeur critique",
         personality: "Exigeant sur la forme et le fond, propose des reformulations, elimine le superflu",
         color: "#EF4444",
@@ -185,7 +185,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Creatif",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Directeur artistique des mots",
         personality: "Recherche l'originalite, les metaphores marquantes, le rythme narratif",
         color: "#8B5CF6",
@@ -206,7 +206,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Partie A",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Representant de la premiere partie",
         personality: "Ferme sur ses interets cles, mais ouvert au compromis sur les points secondaires",
         stance: "pour",
@@ -215,7 +215,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Partie B",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Representant de la seconde partie",
         personality: "Strategique, cherche a maximiser sa position tout en preservant la relation",
         stance: "contre",
@@ -224,7 +224,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Mediateur",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Mediateur neutre",
         personality: "Facilitateur, identifie les zones d'accord, propose des solutions creatives",
         stance: "neutre",
@@ -246,7 +246,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Product Manager",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Product Manager senior - vision, priorisation et specs progressives",
         personality: "Part toujours des problemes utilisateurs, jamais des fonctionnalites. Transforme une vision floue en hypotheses testables. Ecrit des specs courtes et iteratives : vision produit, cibles, parcours utilisateurs, regles metier, criteres de succes. Arbitre entre valeur, complexite et vitesse. Refuse les paves figes.",
         color: "#3B82F6",
@@ -254,7 +254,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Designer UX",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Product Designer - parcours, frictions et prototypage",
         personality: "Challenge les suppositions, rend visibles les parcours et les frictions. Pense wireframes et scenarios d'usage avant les specs ecrites. Rappelle qu'un bon prototype remplace 20 pages de specs. Centre sur l'humain, pragmatique, visuel.",
         color: "#8B5CF6",
@@ -262,7 +262,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Tech Lead",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Tech Lead / Architecte - faisabilite, garde-fous et options techniques",
         personality: "Detecte les fausses bonnes idees techniquement couteuses. Pose des garde-fous (scalabilite, securite, dette). Propose des options techniques sans imposer de solution trop tot. Intervient en relecture et cadrage, pas en pilote. Alerte si on sur-specifie ou si on fige l'architecture avant d'avoir valide l'usage.",
         color: "#F59E0B",
@@ -283,7 +283,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Psychologue",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Psychologue clinicien - ecoute et analyse",
         personality: "Empathique, bienveillant, pose des questions ouvertes, reformule pour aider a clarifier les emotions, ne juge jamais",
         color: "#6366F1",
@@ -291,7 +291,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Coach bien-etre",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Coach en bien-etre - strategies et ressources",
         personality: "Chaleureux, oriente solutions, propose des exercices pratiques (respiration, ancrage), encourage les petits pas, valorise les forces",
         color: "#10B981",
@@ -299,7 +299,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "Pair aidant",
         provider: "claude",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4-20250414",
         role: "Pair aidant - soutien par l'experience vecue",
         personality: "Authentique, partage des temoignages, normalise les difficultes, rappelle que personne n'est seul, ton rassurant et humain",
         color: "#F59E0B",

@@ -31,6 +31,9 @@ export default function DiscussionPage() {
   const [votes, setVotes] = useState<VoteResult[]>([]);
   const [interventionType, setInterventionType] = useState<"message" | "recadrer" | "relancer">("message");
   const [copied, setCopied] = useState(false);
+  const [rating, setRating] = useState<number | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
   const lang = config?.rules.language === "fr" ? "fr-FR" : "en-US";
   const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(lang);
   const voiceToInput = useCallback(() => {
@@ -49,7 +52,13 @@ export default function DiscussionPage() {
   // Smart auto-scroll: only scroll down if user is near the bottom
   const scrollToBottom = useCallback(() => {
     if (!userHasScrolledRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // Use rAF to ensure DOM is painted before scrolling
+      requestAnimationFrame(() => {
+        const el = scrollContainerRef.current;
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+        }
+      });
     }
   }, []);
 
@@ -752,6 +761,28 @@ Sois concis et tranche.`;
     }
   }, [config, isRunning, messages, turnNumber, totalTokens, totalInputTokens, estimatedCostUsd, callAgent, callOrchestrator]);
 
+  const submitFeedback = useCallback(() => {
+    if (rating === null || !config) return;
+    const entry = {
+      date: new Date().toISOString(),
+      topic: config.topic,
+      mode: config.mode,
+      agents: config.agents.map((a) => ({ name: a.name, model: a.model, provider: a.provider })),
+      turns: turnNumber,
+      cost: estimatedCostUsd,
+      rating,
+      feedback: feedbackText.trim() || undefined,
+    };
+    try {
+      const existing = JSON.parse(localStorage.getItem("ai-arena-feedback") || "[]");
+      existing.push(entry);
+      // Keep last 50 entries
+      if (existing.length > 50) existing.splice(0, existing.length - 50);
+      localStorage.setItem("ai-arena-feedback", JSON.stringify(existing));
+    } catch { /* ignore */ }
+    setFeedbackSent(true);
+  }, [rating, feedbackText, config, turnNumber, estimatedCostUsd]);
+
   if (!config) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -975,6 +1006,48 @@ Sois concis et tranche.`;
                 >
                   Voir les resultats
                 </button>
+              </div>
+
+              {/* Feedback */}
+              <div className="mt-5 border-t border-accent/20 pt-4">
+                {feedbackSent ? (
+                  <p className="text-center text-xs text-success">Merci pour votre retour !</p>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-center text-xs text-muted">Comment etait cette discussion ?</p>
+                    <div className="flex justify-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => setRating(star)}
+                          className={`p-1 text-lg transition-colors ${
+                            rating !== null && star <= rating ? "text-amber-400" : "text-border hover:text-amber-300"
+                          }`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                    {rating !== null && (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={feedbackText}
+                          onChange={(e) => setFeedbackText(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && submitFeedback()}
+                          className="flex-1 rounded-lg border border-border bg-card px-3 py-1.5 text-xs outline-none focus:border-accent"
+                          placeholder="Un commentaire ? (optionnel)"
+                        />
+                        <button
+                          onClick={submitFeedback}
+                          className="rounded-lg bg-accent/20 px-3 py-1.5 text-xs text-accent transition-colors hover:bg-accent/30"
+                        >
+                          Envoyer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
