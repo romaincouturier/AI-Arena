@@ -41,6 +41,7 @@ export default function SetupPage() {
   const [expertFilter, setExpertFilter] = useState("");
   const [feedbackHistory, setFeedbackHistory] = useState<{ date: string; topic: string; mode: string; rating: number; feedback?: string; cost: number; turns: number }[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // true until localStorage is loaded
   const [isFirstVisit, setIsFirstVisit] = useState(true); // true until we load keys from localStorage
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function SetupPage() {
         setIsFirstVisit(true);
       }
     } catch { setShowApiKeys(true); setIsFirstVisit(true); }
+    setIsLoading(false);
   }, []);
 
   const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(language === "fr" ? "fr-FR" : "en-US");
@@ -267,8 +269,12 @@ export default function SetupPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
-        {/* First visit: only show API keys onboarding */}
-        {isFirstVisit && !hasAnyKey ? (
+        {/* Wait for localStorage to load before deciding which view to show */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          </div>
+        ) : isFirstVisit && !hasAnyKey ? (
           <section className="mx-auto max-w-lg">
             <div className="mb-6 text-center">
               <h2 className="mb-2 text-xl font-bold">Bienvenue sur AI Arena</h2>
