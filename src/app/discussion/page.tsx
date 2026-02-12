@@ -10,6 +10,7 @@ import TypingIndicator from "@/components/TypingIndicator";
 import { exportToMarkdown, downloadMarkdown } from "@/lib/export";
 import { saveSession } from "@/lib/history";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { getMemories, buildMemoryContext } from "@/lib/memories";
 import { v4 as uuidv4 } from "uuid";
 
 export default function DiscussionPage() {
@@ -50,6 +51,15 @@ export default function DiscussionPage() {
   const [waitingForUser, setWaitingForUser] = useState(false);
   const continueResolverRef = useRef<((overrideAgentId?: string) => void) | null>(null);
   const [nextSpeakerSuggestion, setNextSpeakerSuggestion] = useState<{ agentId: string; agentName: string; instruction: string } | null>(null);
+  const memoryContextRef = useRef<string>("");
+
+  // Load memories once on mount
+  useEffect(() => {
+    if (config?.topic) {
+      const memories = getMemories();
+      memoryContextRef.current = buildMemoryContext(memories, config.topic);
+    }
+  }, [config?.topic]);
 
   useEffect(() => { pauseRef.current = isPaused; }, [isPaused]);
 
@@ -191,7 +201,7 @@ export default function DiscussionPage() {
       history: Message[],
     ): Promise<{ content: string; outputTokens: number; inputTokens: number }> => {
       const apiKey = getApiKey(agentConfig.provider);
-      const systemPrompt = agentConfig.systemPrompt || buildSystemPrompt(agentConfig, config!);
+      const systemPrompt = agentConfig.systemPrompt || buildSystemPrompt(agentConfig, config!, memoryContextRef.current);
 
       // Use sliding context for long discussions
       const contextHistory = buildSlidingContext(history);
@@ -326,7 +336,7 @@ Donne ta decision finale sous forme structuree :
 2. TES ARGUMENTS : les 2-3 arguments principaux qui justifient ta position
 Sois concis et tranche.`;
 
-        const systemPrompt = buildSystemPrompt(agent, config) +
+        const systemPrompt = buildSystemPrompt(agent, config, memoryContextRef.current) +
           "\n\nIMPORTANT: C'est la phase de vote final. Tu dois donner une reponse claire et argumentee.";
 
         try {
@@ -663,6 +673,20 @@ REGLES CRITIQUES pour le livrable :
 
       // Auto-save to history
       try { saveSession(config, result); } catch { /* ignore quota errors */ }
+
+      // Auto-extract memories from key points
+      try {
+        if (keyPoints.length > 0) {
+          const { addMemory } = await import("@/lib/memories");
+          for (const point of keyPoints.slice(0, 5)) {
+            addMemory(point, {
+              source: "auto",
+              tags: [config.mode, ...config.agents.map(a => a.name)],
+              relatedTopic: config.topic,
+            });
+          }
+        }
+      } catch { /* ignore */ }
 
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") { /* ok */ }
@@ -1310,7 +1334,7 @@ REGLES CRITIQUES pour le livrable :
   );
 }
 
-function buildSystemPrompt(agent: SessionConfig["agents"][0], config: SessionConfig): string {
+function buildSystemPrompt(agent: SessionConfig["agents"][0], config: SessionConfig, memoryContext?: string): string {
   const modeInstr = {
     exploration: "Discussion ouverte et exploratoire.",
     decision: `Debat contradictoire. ${agent.stance === "pour" ? "Tu DEFENDS la position." : agent.stance === "contre" ? "Tu ATTAQUES la position." : "Tu es NEUTRE et analyses les deux cotes."}`,
@@ -1354,7 +1378,7 @@ Regles de la discussion :
 - Structure ta reponse : commence par ta position claire, puis developpe 2-3 arguments cles. Pas de listes interminables.
 - Adresse-toi directement aux autres participants par leur nom.
 - Utilise tes frameworks de reference quand c'est pertinent, sans les forcer.
-- Langue : ${config.rules.language === "fr" ? "francais" : "anglais"}${filesContext}`;
+- Langue : ${config.rules.language === "fr" ? "francais" : "anglais"}${filesContext}${memoryContext || ""}`;
 }
 
 /**

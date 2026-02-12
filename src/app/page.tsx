@@ -12,6 +12,7 @@ import { EXPERT_POOL, type ExpertProfile } from "@/lib/experts";
 import AgentCard from "@/components/AgentCard";
 import { createDefaultAgent } from "@/lib/store";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { getMemories, addMemory, deleteMemory, type Memory } from "@/lib/memories";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -42,6 +43,9 @@ export default function SetupPage() {
   const [feedbackHistory, setFeedbackHistory] = useState<{ date: string; topic: string; mode: string; rating: number; feedback?: string; cost: number; turns: number }[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"history" | "memories">("history");
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [newMemoryText, setNewMemoryText] = useState("");
   const [isLoading, setIsLoading] = useState(true); // true until localStorage is loaded
   const [isFirstVisit, setIsFirstVisit] = useState(true); // true until we load keys from localStorage
   const [step, setStep] = useState(0); // 0=onboarding, 1=topic, 2=agents/templates
@@ -49,6 +53,7 @@ export default function SetupPage() {
   useEffect(() => {
     setHistory(getSavedSessions());
     setCustomTemplates(getCustomTemplates());
+    setMemories(getMemories());
     try {
       const fb = JSON.parse(localStorage.getItem("ai-arena-feedback") || "[]");
       setFeedbackHistory(fb.reverse());
@@ -168,6 +173,18 @@ export default function SetupPage() {
     setHistory((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const handleAddMemory = () => {
+    if (!newMemoryText.trim()) return;
+    const mem = addMemory(newMemoryText.trim(), { source: "manual" });
+    setMemories((prev) => [mem, ...prev]);
+    setNewMemoryText("");
+  };
+
+  const handleDeleteMemory = (id: string) => {
+    deleteMemory(id);
+    setMemories((prev) => prev.filter((m) => m.id !== id));
+  };
+
   const expertToAgent = (expert: ExpertProfile, index: number, stance?: string): AgentConfig => {
     const p: "claude" | "openai" | "gemini" = apiKeys.claude?.trim() ? "claude" : apiKeys.openai?.trim() ? "openai" : apiKeys.gemini?.trim() ? "gemini" : "claude";
     const m = p === "claude" ? "claude-haiku-4-5-20251001" : p === "openai" ? "gpt-4o-mini" : "gemini-2.0-flash";
@@ -285,16 +302,28 @@ export default function SetupPage() {
             </div>
           </div>
           {!isLoading && !isFirstVisit && (
-            <button
-              onClick={() => setShowSidebar(!showSidebar)}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Historique
-              {history.length > 0 && <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[9px] font-bold text-accent">{history.length}</span>}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setSidebarTab("memories"); setShowSidebar(!showSidebar); }}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                Memoire
+                {memories.length > 0 && <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-500">{memories.length}</span>}
+              </button>
+              <button
+                onClick={() => { setSidebarTab("history"); setShowSidebar(!showSidebar); }}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Historique
+                {history.length > 0 && <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[9px] font-bold text-accent">{history.length}</span>}
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -307,7 +336,20 @@ export default function SetupPage() {
           {/* Panel */}
           <div className="fixed right-0 top-0 z-50 flex h-full w-80 flex-col border-l border-border bg-background shadow-xl sm:w-96">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <h2 className="text-sm font-semibold">Historique</h2>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setSidebarTab("history")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${sidebarTab === "history" ? "bg-accent/10 text-accent" : "text-muted hover:text-foreground"}`}
+                >
+                  Historique {history.length > 0 && `(${history.length})`}
+                </button>
+                <button
+                  onClick={() => setSidebarTab("memories")}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${sidebarTab === "memories" ? "bg-violet-500/10 text-violet-500" : "text-muted hover:text-foreground"}`}
+                >
+                  Memoire {memories.length > 0 && `(${memories.length})`}
+                </button>
+              </div>
               <button onClick={() => setShowSidebar(false)} className="rounded-lg p-1.5 text-muted hover:bg-border hover:text-foreground">
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -315,6 +357,9 @@ export default function SetupPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
+
+              {/* ── History tab ── */}
+              {sidebarTab === "history" && (<>
               {history.length === 0 ? (
                 <p className="text-center text-xs text-muted">Aucune discussion encore.</p>
               ) : (
@@ -386,6 +431,96 @@ export default function SetupPage() {
                   </div>
                 </div>
               )}
+              </>)}
+
+              {/* ── Memories tab ── */}
+              {sidebarTab === "memories" && (<>
+                {/* Add memory */}
+                <div className="mb-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newMemoryText}
+                      onChange={(e) => setNewMemoryText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAddMemory(); }}
+                      className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-xs outline-none focus:border-violet-500"
+                      placeholder="Ajouter une note a retenir..."
+                    />
+                    <button
+                      onClick={handleAddMemory}
+                      disabled={!newMemoryText.trim()}
+                      className="rounded-lg bg-violet-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-600 disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-muted">
+                    Les souvenirs sont automatiquement injectes dans les prochaines discussions pour donner du contexte aux agents.
+                  </p>
+                </div>
+
+                {memories.length === 0 ? (
+                  <div className="text-center py-8">
+                    <svg className="mx-auto h-8 w-8 text-muted/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <p className="mt-2 text-xs text-muted">Aucun souvenir enregistre.</p>
+                    <p className="mt-1 text-[10px] text-muted">Les points cles de vos discussions seront memorises automatiquement.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {memories.map((mem) => (
+                      <div key={mem.id} className="group rounded-xl border border-border bg-card p-3 transition-colors hover:bg-card-hover">
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs leading-relaxed">{mem.content}</p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                                mem.source === "auto" ? "bg-violet-500/10 text-violet-500" : "bg-accent/10 text-accent"
+                              }`}>
+                                {mem.source === "auto" ? "auto" : "manuel"}
+                              </span>
+                              {mem.relatedTopic && (
+                                <span className="truncate rounded-full bg-border px-1.5 py-0.5 text-[9px] text-muted" title={mem.relatedTopic}>
+                                  {mem.relatedTopic.length > 30 ? mem.relatedTopic.slice(0, 30) + "..." : mem.relatedTopic}
+                                </span>
+                              )}
+                              {mem.tags.length > 0 && mem.tags.slice(0, 2).map((tag) => (
+                                <span key={tag} className="rounded-full bg-border px-1.5 py-0.5 text-[9px] text-muted">{tag}</span>
+                              ))}
+                              <span className="text-[9px] text-muted">
+                                {new Date(mem.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteMemory(mem.id)}
+                            className="shrink-0 rounded-lg p-1 text-muted opacity-0 transition-all hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                            title="Supprimer"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Clear all */}
+                {memories.length > 3 && (
+                  <div className="mt-4 border-t border-border pt-3">
+                    <button
+                      onClick={() => { memories.forEach((m) => deleteMemory(m.id)); setMemories([]); }}
+                      className="text-[10px] text-muted transition-colors hover:text-danger"
+                    >
+                      Effacer tous les souvenirs ({memories.length})
+                    </button>
+                  </div>
+                )}
+              </>)}
+
             </div>
           </div>
         </>
