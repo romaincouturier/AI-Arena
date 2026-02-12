@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { EXPERT_POOL } from "@/lib/experts";
 
 export const runtime = "edge";
@@ -6,6 +7,7 @@ export const maxDuration = 15;
 
 interface RequestBody {
   apiKey: string;
+  provider?: "claude" | "openai" | "gemini";
   topic: string;
   mode: "exploration" | "decision" | "deliverable";
   language: string;
@@ -19,7 +21,7 @@ export async function POST(request: Request) {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const { apiKey, topic, mode, language } = body;
+  const { apiKey, provider = "claude", topic, mode, language } = body;
   if (!apiKey || !topic) {
     return new Response("Missing apiKey or topic", { status: 400 });
   }
@@ -59,16 +61,37 @@ Tu DOIS repondre UNIQUEMENT avec un JSON valide :
   "modeReason": "pourquoi ce mode (optionnel, seulement si different du mode demande)"
 }`;
 
-  const client = new Anthropic({ apiKey });
-
   try {
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      messages: [{ role: "user", content: prompt }],
-    });
+    let text = "";
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    if (provider === "openai") {
+      const client = new OpenAI({ apiKey });
+      const response = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 500,
+        messages: [{ role: "user", content: prompt }],
+      });
+      text = response.choices[0]?.message?.content || "";
+    } else if (provider === "gemini") {
+      const client = new OpenAI({
+        apiKey,
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      });
+      const response = await client.chat.completions.create({
+        model: "gemini-2.0-flash",
+        max_tokens: 500,
+        messages: [{ role: "user", content: prompt }],
+      });
+      text = response.choices[0]?.message?.content || "";
+    } else {
+      const client = new Anthropic({ apiKey });
+      const response = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        messages: [{ role: "user", content: prompt }],
+      });
+      text = response.content[0].type === "text" ? response.content[0].text : "";
+    }
 
     let parsed;
     try {
@@ -78,7 +101,6 @@ Tu DOIS repondre UNIQUEMENT avec un JSON valide :
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[0]);
       } else {
-        // Fallback: return first 3 experts
         parsed = {
           experts: EXPERT_POOL.slice(0, 3).map((e) => ({
             id: e.id,
