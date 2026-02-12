@@ -47,8 +47,42 @@ export default function DiscussionPage() {
   const abortRef = useRef<AbortController | null>(null);
   const pauseRef = useRef(false);
   const userMessagesRef = useRef<Message[]>([]);
+  const [waitingForUser, setWaitingForUser] = useState(false);
+  const continueResolverRef = useRef<(() => void) | null>(null);
 
   useEffect(() => { pauseRef.current = isPaused; }, [isPaused]);
+
+  // Step-by-step: pause after each agent turn and wait for user to continue
+  const waitForUserContinue = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      continueResolverRef.current = resolve;
+      setWaitingForUser(true);
+    });
+  }, []);
+
+  const handleContinueStep = useCallback(() => {
+    // If user typed something, inject it as a message first
+    if (userInput.trim() && config) {
+      const userMessage: Message = {
+        id: uuidv4(),
+        agentId: "user",
+        agentName: "Utilisateur",
+        agentColor: "#6B7280",
+        content: userInput.trim(),
+        turnNumber: turnNumber,
+        timestamp: Date.now(),
+        isUser: true,
+      };
+      userMessagesRef.current.push(userMessage);
+      setMessages((prev) => [...prev, userMessage]);
+      setUserInput("");
+    }
+    setWaitingForUser(false);
+    if (continueResolverRef.current) {
+      continueResolverRef.current();
+      continueResolverRef.current = null;
+    }
+  }, [userInput, config, turnNumber]);
 
   // Smart auto-scroll: only scroll down if user is near the bottom
   const scrollToBottom = useCallback(() => {
@@ -519,6 +553,12 @@ REGLES CRITIQUES pour le livrable :
         };
         allMessages.push(message);
         setMessages([...allMessages]);
+
+        // Step-by-step: wait for user to continue (unless last turn or about to conclude)
+        if (turn < config.rules.maxTurns - 1) {
+          await waitForUserContinue();
+          if (abortRef.current?.signal.aborted) throw new Error("Discussion arretee");
+        }
       }
 
       // Mode-specific endings
@@ -591,7 +631,7 @@ REGLES CRITIQUES pour le livrable :
       setCurrentSpeaker(null);
       setStreamingContent("");
     }
-  }, [config, callAgent, callOrchestrator, runVoting, generateFinalOutput, keyPoints]);
+  }, [config, callAgent, callOrchestrator, runVoting, generateFinalOutput, keyPoints, waitForUserContinue]);
 
   useEffect(() => {
     if (config && !isRunning && messages.length === 0 && !error) {
@@ -815,6 +855,12 @@ REGLES CRITIQUES pour le livrable :
         };
         allMessages.push(message);
         setMessages([...allMessages]);
+
+        // Step-by-step: wait for user
+        if (i < 4) {
+          await waitForUserContinue();
+          if (abortRef.current?.signal.aborted) throw new Error("Discussion arretee");
+        }
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") { /* ok */ }
@@ -824,7 +870,7 @@ REGLES CRITIQUES pour le livrable :
       setCurrentSpeaker(null);
       setStreamingContent("");
     }
-  }, [config, isRunning, messages, turnNumber, totalTokens, totalInputTokens, estimatedCostUsd, callAgent, callOrchestrator]);
+  }, [config, isRunning, messages, turnNumber, totalTokens, totalInputTokens, estimatedCostUsd, callAgent, callOrchestrator, waitForUserContinue]);
 
   const submitFeedback = useCallback(() => {
     if (rating === null || !config) return;
@@ -1136,62 +1182,61 @@ REGLES CRITIQUES pour le livrable :
         )}
       </div>
 
-      {/* User input */}
-      {config.userMode !== "observer" && (
+      {/* Step-by-step input — always visible during discussion */}
+      {isRunning && (
         <div className="shrink-0 border-t border-border px-6 py-3">
-          <div className="flex gap-2">
-            <select
-              value={interventionType}
-              onChange={(e) => setInterventionType(e.target.value as typeof interventionType)}
-              className="shrink-0 rounded-lg border border-border bg-card px-2 py-2 text-xs outline-none focus:border-accent"
-            >
-              <option value="message">Message</option>
-              <option value="recadrer">Recadrer</option>
-              <option value="relancer">Relancer</option>
-            </select>
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleUserIntervention()}
-              className="flex-1 rounded-lg border border-border bg-card px-4 py-2 text-sm outline-none focus:border-accent"
-              placeholder={
-                interventionType === "recadrer" ? "Recadrer la discussion vers..."
-                  : interventionType === "relancer" ? "Relancer sur un nouveau point..."
-                    : "Intervenir dans la discussion..."
-              }
-            />
-            {micSupported && (
-              <button
-                type="button"
-                onClick={voiceToInput}
-                className={`shrink-0 rounded-lg p-2 transition-colors ${
-                  isListening ? "bg-danger/10 text-danger animate-pulse" : "text-muted hover:text-accent hover:bg-accent/10"
-                }`}
-                title={isListening ? "Arreter l'ecoute" : "Dicter un message"}
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8m-4-12a3 3 0 00-3 3v4a3 3 0 006 0V8a3 3 0 00-3-3z" />
-                </svg>
-              </button>
-            )}
-            <button
-              onClick={handleUserIntervention}
-              disabled={!userInput.trim()}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-            >
-              Envoyer
-            </button>
-            {isRunning && (
+          {waitingForUser ? (
+            /* Waiting for user: show prominent continue + input */
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-xs font-medium text-amber-400">En attente de votre validation</span>
+                <span className="text-[10px] text-muted">— ajoutez du contexte ou continuez</span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleContinueStep()}
+                  className="flex-1 rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none focus:border-accent"
+                  placeholder="Ajouter du contexte, corriger une hypothese, recadrer... (optionnel)"
+                  autoFocus
+                />
+                {micSupported && (
+                  <button
+                    type="button"
+                    onClick={voiceToInput}
+                    className={`shrink-0 rounded-lg p-2 transition-colors ${
+                      isListening ? "bg-danger/10 text-danger animate-pulse" : "text-muted hover:text-accent hover:bg-accent/10"
+                    }`}
+                    title={isListening ? "Arreter l'ecoute" : "Dicter"}
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8m-4-12a3 3 0 00-3 3v4a3 3 0 006 0V8a3 3 0 00-3-3z" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={handleContinueStep}
+                  className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+                >
+                  {userInput.trim() ? "Envoyer et continuer" : "Continuer"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Agent is speaking — show minimal status */
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span>L&apos;agent repond...</span>
               <button
                 onClick={requestIntermediateSynthesis}
-                className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
-                title="Demander une synthese intermediaire"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
               >
-                Synthese
+                Synthese intermediaire
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
