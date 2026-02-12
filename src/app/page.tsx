@@ -913,6 +913,61 @@ export default function SetupPage() {
                 </p>
               )}
             </div>
+
+            {/* History — also accessible from step 2 */}
+            {history.length > 0 && (
+              <section className="mb-6 mt-6 border-t border-border pt-6">
+                <h3 className="mb-3 text-sm font-semibold text-muted">Historique</h3>
+                <div className="space-y-2">
+                  {history.slice(0, 5).map((session) => (
+                    <div key={session.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-card-hover">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${
+                        session.mode === "decision" ? "bg-amber-500" : session.mode === "deliverable" ? "bg-emerald-500" : "bg-accent"
+                      }`}>
+                        {session.mode === "decision" ? "D" : session.mode === "deliverable" ? "L" : "E"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{session.topic}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-muted">
+                          <span>{new Date(session.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                          <span>·</span>
+                          <span>{session.agentNames.join(", ")}</span>
+                          <span>·</span>
+                          <span>{session.turns} tours</span>
+                          <span>·</span>
+                          <span className="font-mono">${session.cost.toFixed(4)}</span>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          onClick={() => handleViewSession(session)}
+                          className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
+                        >
+                          Voir
+                        </button>
+                        <button
+                          onClick={() => { handleReuseSession(session); }}
+                          className="rounded-lg border border-accent/30 bg-accent/10 px-2.5 py-1.5 text-[11px] text-accent transition-colors hover:bg-accent/20"
+                        >
+                          Reutiliser
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSession(session.id)}
+                          className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:border-danger hover:text-danger"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {history.length > 5 && (
+                    <p className="text-center text-xs text-muted">et {history.length - 5} autre{history.length - 5 > 1 ? "s" : ""}...</p>
+                  )}
+                </div>
+              </section>
+            )}
           </>
         )}
 
