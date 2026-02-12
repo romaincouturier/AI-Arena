@@ -41,6 +41,7 @@ export default function SetupPage() {
   const [expertFilter, setExpertFilter] = useState("");
   const [feedbackHistory, setFeedbackHistory] = useState<{ date: string; topic: string; mode: string; rating: number; feedback?: string; cost: number; turns: number }[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // true until localStorage is loaded
   const [isFirstVisit, setIsFirstVisit] = useState(true); // true until we load keys from localStorage
   const [step, setStep] = useState(0); // 0=onboarding, 1=topic, 2=agents/templates
@@ -283,8 +284,112 @@ export default function SetupPage() {
               <p className="text-xs text-muted">Discussions Multi-Agents</p>
             </div>
           </div>
+          {!isLoading && !isFirstVisit && (
+            <button
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Historique
+              {history.length > 0 && <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[9px] font-bold text-accent">{history.length}</span>}
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Sidebar — history panel */}
+      {showSidebar && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setShowSidebar(false)} />
+          {/* Panel */}
+          <div className="fixed right-0 top-0 z-50 flex h-full w-80 flex-col border-l border-border bg-background shadow-xl sm:w-96">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <h2 className="text-sm font-semibold">Historique</h2>
+              <button onClick={() => setShowSidebar(false)} className="rounded-lg p-1.5 text-muted hover:bg-border hover:text-foreground">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {history.length === 0 ? (
+                <p className="text-center text-xs text-muted">Aucune discussion encore.</p>
+              ) : (
+                <div className="space-y-2">
+                  {history.map((session) => (
+                    <div key={session.id} className="rounded-xl border border-border bg-card p-3 transition-colors hover:bg-card-hover">
+                      <div className="flex items-start gap-2.5">
+                        <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-white ${
+                          session.mode === "decision" ? "bg-amber-500" : session.mode === "deliverable" ? "bg-emerald-500" : "bg-accent"
+                        }`}>
+                          {session.mode === "decision" ? "D" : session.mode === "deliverable" ? "L" : "E"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium leading-tight">{session.topic}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted">
+                            <span>{new Date(session.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                            <span>{session.agentNames.join(", ")}</span>
+                            <span>{session.turns} tours · <span className="font-mono">${session.cost.toFixed(4)}</span></span>
+                          </div>
+                          <div className="mt-2 flex gap-1">
+                            <button
+                              onClick={() => { handleViewSession(session); setShowSidebar(false); }}
+                              className="rounded-lg border border-border px-2 py-1 text-[10px] text-muted transition-colors hover:border-accent hover:text-accent"
+                            >
+                              Resultats
+                            </button>
+                            <button
+                              onClick={() => { handleReuseSession(session); setStep(2); setShowSidebar(false); }}
+                              className="rounded-lg border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] text-accent transition-colors hover:bg-accent/20"
+                            >
+                              Relancer
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSession(session.id)}
+                              className="rounded-lg border border-border px-1.5 py-1 text-[10px] text-muted transition-colors hover:border-danger hover:text-danger"
+                            >
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Feedback in sidebar too */}
+              {feedbackHistory.length > 0 && (
+                <div className="mt-6 border-t border-border pt-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-xs font-semibold text-muted">Avis ({feedbackHistory.length})</h3>
+                    <span className="text-xs text-muted">
+                      <span className="text-amber-400">{"★".repeat(Math.round(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length))}</span> {(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length).toFixed(1)}/5
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {feedbackHistory.slice(0, 5).map((fb, i) => (
+                      <div key={i} className="rounded-lg border border-border bg-card p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-amber-400 text-[10px]">{"★".repeat(fb.rating)}{"☆".repeat(5 - fb.rating)}</span>
+                          <span className="text-[9px] text-muted">{fb.mode} · {fb.turns}t</span>
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px]">{fb.topic}</p>
+                        {fb.feedback && <p className="mt-0.5 truncate text-[10px] text-muted italic">{fb.feedback}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       <main className="mx-auto max-w-5xl px-6 py-8">
         {/* Wait for localStorage to load before deciding which view to show */}
@@ -437,57 +542,6 @@ export default function SetupPage() {
             >
               Suivant
             </button>
-
-            {/* History — quick access */}
-            {history.length > 0 && (
-              <div className="mt-8 border-t border-border pt-6">
-                <h3 className="mb-3 text-sm font-semibold text-muted">Reprendre une discussion</h3>
-                <div className="space-y-2">
-                  {history.slice(0, 3).map((session) => (
-                    <div key={session.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-card-hover">
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${
-                        session.mode === "decision" ? "bg-amber-500" : session.mode === "deliverable" ? "bg-emerald-500" : "bg-accent"
-                      }`}>
-                        {session.mode === "decision" ? "D" : session.mode === "deliverable" ? "L" : "E"}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{session.topic}</p>
-                        <div className="flex items-center gap-2 text-[10px] text-muted">
-                          <span>{new Date(session.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-                          <span>·</span>
-                          <span>{session.agentNames.join(", ")}</span>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          onClick={() => handleViewSession(session)}
-                          className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
-                        >
-                          Voir
-                        </button>
-                        <button
-                          onClick={() => { handleReuseSession(session); setStep(2); }}
-                          className="rounded-lg border border-accent/30 bg-accent/10 px-2.5 py-1.5 text-[11px] text-accent transition-colors hover:bg-accent/20"
-                        >
-                          Relancer
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSession(session.id)}
-                          className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:border-danger hover:text-danger"
-                        >
-                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {history.length > 3 && (
-                    <p className="text-center text-xs text-muted">et {history.length - 3} autre{history.length - 3 > 1 ? "s" : ""}...</p>
-                  )}
-                </div>
-              </div>
-            )}
           </section>
         )}
 
@@ -913,44 +967,8 @@ export default function SetupPage() {
                 </p>
               )}
             </div>
-          </>
-        )}
 
-        {/* Feedback History — bottom of any step */}
-        {feedbackHistory.length > 0 && step >= 1 && (
-          <section className="mb-8 mt-8">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-muted">Avis ({feedbackHistory.length})</h2>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted">
-                  <span className="text-amber-400">{"★".repeat(Math.round(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length))}</span> {(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length).toFixed(1)}/5
-                </span>
-                <button
-                  onClick={() => setShowFeedback(!showFeedback)}
-                  className="text-[11px] text-muted transition-colors hover:text-accent"
-                >
-                  {showFeedback ? "Masquer" : "Details"}
-                </button>
-              </div>
-            </div>
-            {showFeedback && (
-              <div className="space-y-2">
-                {feedbackHistory.map((fb, i) => (
-                  <div key={i} className="rounded-xl border border-border bg-card p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-amber-400">{"★".repeat(fb.rating)}{"☆".repeat(5 - fb.rating)}</span>
-                        <span className="text-xs text-muted">{new Date(fb.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-                      </div>
-                      <span className="text-[10px] text-muted">{fb.mode} · {fb.turns} tours</span>
-                    </div>
-                    <p className="mt-1 truncate text-sm">{fb.topic}</p>
-                    {fb.feedback && <p className="mt-1 text-xs text-muted italic">&ldquo;{fb.feedback}&rdquo;</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          </>
         )}
         </>)}
       </main>
