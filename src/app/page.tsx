@@ -41,6 +41,7 @@ export default function SetupPage() {
   const [expertFilter, setExpertFilter] = useState("");
   const [feedbackHistory, setFeedbackHistory] = useState<{ date: string; topic: string; mode: string; rating: number; feedback?: string; cost: number; turns: number }[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isFirstVisit, setIsFirstVisit] = useState(true); // true until we load keys from localStorage
 
   useEffect(() => {
     setHistory(getSavedSessions());
@@ -55,10 +56,12 @@ export default function SetupPage() {
       if (saved.claude || saved.openai || saved.gemini) {
         setApiKeys(saved);
         setShowApiKeys(false);
+        setIsFirstVisit(false);
       } else {
         setShowApiKeys(true);
+        setIsFirstVisit(true);
       }
-    } catch { setShowApiKeys(true); }
+    } catch { setShowApiKeys(true); setIsFirstVisit(true); }
   }, []);
 
   const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(language === "fr" ? "fr-FR" : "en-US");
@@ -219,6 +222,7 @@ export default function SetupPage() {
     return false;
   });
   const canStart = topic.trim().length > 0 && hasRequiredKey && agents.every((a) => a.name.trim().length > 0);
+  const hasAnyKey = !!(apiKeys.claude?.trim() || apiKeys.openai?.trim() || apiKeys.gemini?.trim());
 
   const startDiscussion = () => {
     if (!canStart) return;
@@ -234,6 +238,7 @@ export default function SetupPage() {
     sessionStorage.setItem("ai-arena-api-keys", JSON.stringify(apiKeys));
     // Persist keys in localStorage so user doesn't re-enter them
     localStorage.setItem("ai-arena-api-keys", JSON.stringify(apiKeys));
+    setIsFirstVisit(false);
     router.push("/discussion");
   };
 
@@ -262,6 +267,71 @@ export default function SetupPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
+        {/* First visit: only show API keys onboarding */}
+        {isFirstVisit && !hasAnyKey ? (
+          <section className="mx-auto max-w-lg">
+            <div className="mb-6 text-center">
+              <h2 className="mb-2 text-xl font-bold">Bienvenue sur AI Arena</h2>
+              <p className="text-sm text-muted">Pour commencer, renseignez au moins une cle API. Vos cles restent stockees localement dans votre navigateur.</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+              <div>
+                <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#D97706]" />
+                  Anthropic (Claude) <span className="text-accent">recommande</span>
+                </label>
+                <input
+                  type="password"
+                  value={apiKeys.claude || ""}
+                  onChange={(e) => setApiKeys({ ...apiKeys, claude: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent"
+                  placeholder="sk-ant-..."
+                  autoFocus
+                />
+                <p className="mt-1 text-[10px] text-muted">Utilise pour les agents et l&apos;orchestrateur. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
+              </div>
+              <div>
+                <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#10A37F]" />
+                  OpenAI <span className="text-[10px]">(optionnel)</span>
+                </label>
+                <input
+                  type="password"
+                  value={apiKeys.openai || ""}
+                  onChange={(e) => setApiKeys({ ...apiKeys, openai: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent"
+                  placeholder="sk-..."
+                />
+              </div>
+              <div>
+                <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#4285F4]" />
+                  Google Gemini <span className="text-[10px]">(optionnel)</span>
+                </label>
+                <input
+                  type="password"
+                  value={apiKeys.gemini || ""}
+                  onChange={(e) => setApiKeys({ ...apiKeys, gemini: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-accent"
+                  placeholder="AIza..."
+                />
+              </div>
+              <button
+                onClick={() => {
+                  if (hasAnyKey) {
+                    localStorage.setItem("ai-arena-api-keys", JSON.stringify(apiKeys));
+                    setIsFirstVisit(false);
+                    setShowApiKeys(false);
+                  }
+                }}
+                disabled={!hasAnyKey}
+                className="w-full rounded-xl bg-accent py-3 text-center font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Commencer
+              </button>
+            </div>
+          </section>
+        ) : (<>
         {/* Topic — first and most important */}
         <section className="mb-6">
           <h2 className="mb-3 text-lg font-semibold">Sujet de la discussion</h2>
@@ -829,6 +899,7 @@ export default function SetupPage() {
             )}
           </section>
         )}
+        </>)}
       </main>
     </div>
   );
