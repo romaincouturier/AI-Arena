@@ -48,19 +48,22 @@ export default function DiscussionPage() {
   const pauseRef = useRef(false);
   const userMessagesRef = useRef<Message[]>([]);
   const [waitingForUser, setWaitingForUser] = useState(false);
-  const continueResolverRef = useRef<(() => void) | null>(null);
+  const continueResolverRef = useRef<((overrideAgentId?: string) => void) | null>(null);
+  const [nextSpeakerSuggestion, setNextSpeakerSuggestion] = useState<{ agentId: string; agentName: string; instruction: string } | null>(null);
 
   useEffect(() => { pauseRef.current = isPaused; }, [isPaused]);
 
   // Step-by-step: pause after each agent turn and wait for user to continue
-  const waitForUserContinue = useCallback((): Promise<void> => {
+  // Returns an optional override agent ID if user picks a different speaker
+  const waitForUserContinue = useCallback((suggestion?: { agentId: string; agentName: string; instruction: string }): Promise<string | undefined> => {
     return new Promise((resolve) => {
-      continueResolverRef.current = resolve;
+      continueResolverRef.current = resolve as (overrideAgentId?: string) => void;
+      setNextSpeakerSuggestion(suggestion || null);
       setWaitingForUser(true);
     });
   }, []);
 
-  const handleContinueStep = useCallback(() => {
+  const handleContinueStep = useCallback((overrideAgentId?: string) => {
     // If user typed something, inject it as a message first
     if (userInput.trim() && config) {
       const userMessage: Message = {
@@ -77,9 +80,12 @@ export default function DiscussionPage() {
       setMessages((prev) => [...prev, userMessage]);
       setUserInput("");
     }
+    // Reset auto-scroll so next agent response scrolls into view
+    userHasScrolledRef.current = false;
     setWaitingForUser(false);
+    setNextSpeakerSuggestion(null);
     if (continueResolverRef.current) {
-      continueResolverRef.current();
+      continueResolverRef.current(overrideAgentId);
       continueResolverRef.current = null;
     }
   }, [userInput, config, turnNumber]);
@@ -104,7 +110,8 @@ export default function DiscussionPage() {
     const el = scrollContainerRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    userHasScrolledRef.current = distanceFromBottom > 150;
+    // Only consider user as "scrolled away" if they are far from bottom
+    userHasScrolledRef.current = distanceFromBottom > 400;
   }, []);
 
   useEffect(() => {
@@ -139,7 +146,11 @@ export default function DiscussionPage() {
       let inputTokens = 0;
 
       setCurrentSpeaker(agentId);
-      if (!existingContent) setStreamingContent("");
+      if (!existingContent) {
+        setStreamingContent("");
+        // Reset auto-scroll when a new agent starts speaking
+        userHasScrolledRef.current = false;
+      }
 
       while (true) {
         const { done, value } = await reader.read();
@@ -497,6 +508,8 @@ REGLES CRITIQUES pour le livrable :
     let inputTokensUsed = 0;
     let costAccumulated = 0;
 
+    let pendingDecision: OrchestratorDecision | null = null;
+
     try {
       for (let turn = 0; turn < config.rules.maxTurns; turn++) {
         currentTurn = turn + 1;
@@ -508,8 +521,14 @@ REGLES CRITIQUES pour le livrable :
         }
         if (abortRef.current?.signal.aborted) throw new Error("Discussion arretee");
 
-        // Ask orchestrator who speaks next
-        const decision = await callOrchestrator(allMessages, currentTurn);
+        // Use pending decision from previous step-by-step, or ask orchestrator
+        let decision: OrchestratorDecision;
+        if (pendingDecision) {
+          decision = pendingDecision;
+          pendingDecision = null;
+        } else {
+          decision = await callOrchestrator(allMessages, currentTurn);
+        }
         setDiscussionState(decision.discussionState);
         if (decision.keyPointsSoFar?.length) setKeyPoints(decision.keyPointsSoFar);
 
@@ -554,10 +573,29 @@ REGLES CRITIQUES pour le livrable :
         allMessages.push(message);
         setMessages([...allMessages]);
 
-        // Step-by-step: wait for user to continue (unless last turn or about to conclude)
+        // Step-by-step: get next speaker recommendation, then wait for user
         if (turn < config.rules.maxTurns - 1) {
-          await waitForUserContinue();
+          // Pre-fetch orchestrator decision for next turn to show recommendation
+          const nextDecision = await callOrchestrator(allMessages, currentTurn + 1);
+          const suggestedAgent = config.agents.find((a) => a.id === nextDecision.nextSpeaker);
+
+          const overrideId = await waitForUserContinue(
+            suggestedAgent
+              ? { agentId: suggestedAgent.id, agentName: suggestedAgent.name, instruction: nextDecision.instruction }
+              : undefined
+          );
           if (abortRef.current?.signal.aborted) throw new Error("Discussion arretee");
+
+          // If user overrode the speaker, update the decision
+          if (overrideId && overrideId !== nextDecision.nextSpeaker) {
+            nextDecision.nextSpeaker = overrideId;
+            const overrideAgent = config.agents.find((a) => a.id === overrideId);
+            nextDecision.instruction = `Donne ton point de vue sur ce qui vient d'etre dit par rapport au sujet central : ${config.topic}`;
+            if (overrideAgent) {
+              nextDecision.instruction = `${overrideAgent.name}, reagis aux echanges precedents et donne ton point de vue sur le sujet central : ${config.topic}`;
+            }
+          }
+          pendingDecision = nextDecision;
         }
       }
 
@@ -1186,13 +1224,39 @@ REGLES CRITIQUES pour le livrable :
       {isRunning && (
         <div className="shrink-0 border-t border-border px-6 py-3">
           {waitingForUser ? (
-            /* Waiting for user: show prominent continue + input */
+            /* Waiting for user: show next speaker recommendation + input */
             <div>
-              <div className="mb-2 flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                <span className="text-xs font-medium text-amber-400">En attente de votre validation</span>
-                <span className="text-[10px] text-muted">— ajoutez du contexte ou continuez</span>
-              </div>
+              {/* Next speaker recommendation */}
+              {nextSpeakerSuggestion && config && (
+                <div className="mb-3">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-xs font-medium text-amber-400">Prochain interlocuteur suggere</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {config.agents.map((a) => {
+                      const isSuggested = a.id === nextSpeakerSuggestion.agentId;
+                      return (
+                        <button
+                          key={a.id}
+                          onClick={() => handleContinueStep(a.id)}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-all ${
+                            isSuggested
+                              ? "border-accent bg-accent/10 font-semibold text-accent ring-1 ring-accent/30"
+                              : "border-border bg-card text-muted hover:border-accent hover:text-foreground"
+                          }`}
+                          title={isSuggested ? nextSpeakerSuggestion.instruction : `Faire parler ${a.name}`}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: a.color }} />
+                          {a.name}
+                          {isSuggested && <span className="text-[9px] text-accent/70">recommande</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {/* User input */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -1218,7 +1282,7 @@ REGLES CRITIQUES pour le livrable :
                   </button>
                 )}
                 <button
-                  onClick={handleContinueStep}
+                  onClick={() => handleContinueStep()}
                   className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
                 >
                   {userInput.trim() ? "Envoyer et continuer" : "Continuer"}
