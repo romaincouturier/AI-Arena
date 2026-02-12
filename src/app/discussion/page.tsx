@@ -75,7 +75,7 @@ export default function DiscussionPage() {
 
   useEffect(() => {
     const configStr = sessionStorage.getItem("ai-arena-config");
-    const keysStr = sessionStorage.getItem("ai-arena-api-keys");
+    const keysStr = sessionStorage.getItem("ai-arena-api-keys") || localStorage.getItem("ai-arena-api-keys");
     if (!configStr) { router.push("/"); return; }
     try {
       setConfig(JSON.parse(configStr));
@@ -88,6 +88,56 @@ export default function DiscussionPage() {
     if (provider === "gemini") return apiKeys.gemini || "";
     return apiKeys.claude || "";
   }, [apiKeys]);
+
+  // Stream an SSE response and collect content + usage
+  const streamResponse = useCallback(
+    async (
+      response: Response,
+      agentId: string,
+      existingContent: string = "",
+    ): Promise<{ content: string; outputTokens: number; inputTokens: number }> => {
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let fullContent = existingContent;
+      let outputTokens = 0;
+      let inputTokens = 0;
+
+      setCurrentSpeaker(agentId);
+      if (!existingContent) setStreamingContent("");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.type === "content") {
+                fullContent += parsed.text;
+                setStreamingContent(fullContent);
+              } else if (parsed.type === "usage") {
+                outputTokens = parsed.outputTokens || 0;
+                inputTokens = parsed.inputTokens || 0;
+              } else if (parsed.type === "error") {
+                throw new Error(parsed.message);
+              }
+            } catch (e) {
+              if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e;
+            }
+          }
+        }
+      }
+
+      return { content: fullContent, outputTokens, inputTokens };
+    },
+    []
+  );
 
   const callAgent = useCallback(
     async (
@@ -122,49 +172,41 @@ export default function DiscussionPage() {
         throw new Error(err || `HTTP ${response.status}`);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No response stream");
+      let result = await streamResponse(response, agentConfig.id);
 
-      const decoder = new TextDecoder();
-      let fullContent = "";
-      let outputTokens = 0;
-      let inputTokens = 0;
+      // Auto-continuation: detect truncated responses and ask the agent to finish
+      if (looksIncomplete(result.content)) {
+        const contResponse = await fetch("/api/orchestrate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: agentConfig.provider,
+            apiKey,
+            model: agentConfig.model,
+            systemPrompt: systemPrompt + "\n\nIMPORTANT: Tu continues ta reponse precedente qui a ete coupee. Ne repete pas ce qui est deja dit. Termine ton point en quelques phrases.",
+            turnInstruction: `Continue directement la suite de ton texte. Voici comment ta reponse se terminait : "...${result.content.slice(-200)}"`,
+            history: contextHistory,
+            topic: config!.topic,
+            maxTokens: 600,
+          }),
+          signal: abortRef.current?.signal,
+        });
 
-      setCurrentSpeaker(agentConfig.id);
-      setStreamingContent("");
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.type === "content") {
-                fullContent += parsed.text;
-                setStreamingContent(fullContent);
-              } else if (parsed.type === "usage") {
-                outputTokens = parsed.outputTokens || 0;
-                inputTokens = parsed.inputTokens || 0;
-              } else if (parsed.type === "error") {
-                throw new Error(parsed.message);
-              }
-            } catch (e) {
-              if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e;
-            }
-          }
+        if (contResponse.ok) {
+          const contResult = await streamResponse(contResponse, agentConfig.id, result.content);
+          result = {
+            content: contResult.content,
+            outputTokens: result.outputTokens + contResult.outputTokens,
+            inputTokens: result.inputTokens + contResult.inputTokens,
+          };
         }
       }
 
       setCurrentSpeaker(null);
       setStreamingContent("");
-      return { content: fullContent, outputTokens, inputTokens };
+      return result;
     },
-    [config, getApiKey]
+    [config, getApiKey, streamResponse]
   );
 
   const callOrchestrator = useCallback(
@@ -1201,6 +1243,27 @@ Regles de la discussion :
 - Adresse-toi directement aux autres participants par leur nom.
 - Utilise tes frameworks de reference quand c'est pertinent, sans les forcer.
 - Langue : ${config.rules.language === "fr" ? "francais" : "anglais"}${filesContext}`;
+}
+
+/**
+ * Detect if an agent response was cut short (hit the token limit mid-sentence).
+ * Returns true if the text appears incomplete.
+ */
+function looksIncomplete(text: string): boolean {
+  if (!text || text.length < 100) return false;
+  const trimmed = text.trimEnd();
+  // Proper sentence endings
+  if (/[.!?:»"\u2019)\]]$/.test(trimmed)) return false;
+  // Ends with a markdown heading or list marker (structural ending)
+  if (/\n#{1,3}\s+\S.*$/.test(trimmed)) return false;
+  // Ends with a complete list item (dash/number + text + period/punctuation)
+  if (/[-*]\s+.{10,}[.!?]$/.test(trimmed)) return false;
+  // Ends with a closing markdown bold/italic
+  if (/\*{1,2}$/.test(trimmed)) return false;
+  // Ends with an emoji (common in AI outputs)
+  if (/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]$/u.test(trimmed)) return false;
+  // The text is likely cut mid-sentence
+  return true;
 }
 
 function computeTokensPerAgent(messages: Message[]): Record<string, number> {

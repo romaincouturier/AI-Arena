@@ -23,7 +23,7 @@ export default function SetupPage() {
   const [maxTokensPerTurn, setMaxTokensPerTurn] = useState(800);
   const [language, setLanguage] = useState("fr");
   const [apiKeys, setApiKeys] = useState<ApiKeys>({ claude: "", openai: "", gemini: "" });
-  const [showApiKeys, setShowApiKeys] = useState(true);
+  const [showApiKeys, setShowApiKeys] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [agents, setAgents] = useState<AgentConfig[]>([
@@ -49,6 +49,16 @@ export default function SetupPage() {
       const fb = JSON.parse(localStorage.getItem("ai-arena-feedback") || "[]");
       setFeedbackHistory(fb.reverse());
     } catch { /* ignore */ }
+    // Load persisted API keys
+    try {
+      const saved = JSON.parse(localStorage.getItem("ai-arena-api-keys") || "{}");
+      if (saved.claude || saved.openai || saved.gemini) {
+        setApiKeys(saved);
+        setShowApiKeys(false);
+      } else {
+        setShowApiKeys(true);
+      }
+    } catch { setShowApiKeys(true); }
   }, []);
 
   const { isListening, isSupported: micSupported, startListening, stopListening } = useSpeechRecognition(language === "fr" ? "fr-FR" : "en-US");
@@ -222,6 +232,8 @@ export default function SetupPage() {
     };
     sessionStorage.setItem("ai-arena-config", JSON.stringify(config));
     sessionStorage.setItem("ai-arena-api-keys", JSON.stringify(apiKeys));
+    // Persist keys in localStorage so user doesn't re-enter them
+    localStorage.setItem("ai-arena-api-keys", JSON.stringify(apiKeys));
     router.push("/discussion");
   };
 
@@ -250,322 +262,8 @@ export default function SetupPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8">
-        {/* API Keys */}
-        <section className="mb-8">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-                <h2 className="font-semibold">Cles API</h2>
-              </div>
-              <button onClick={() => setShowApiKeys(!showApiKeys)} className="text-xs text-muted hover:text-foreground">
-                {showApiKeys ? "Masquer" : "Afficher"}
-              </button>
-            </div>
-            {showApiKeys && (
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
-                    <span className="inline-block h-2 w-2 rounded-full bg-[#D97706]" />
-                    Anthropic (Claude) {usedProviders.has("claude") && <span className="text-accent">*requis</span>}
-                  </label>
-                  <input
-                    type="password"
-                    value={apiKeys.claude || ""}
-                    onChange={(e) => setApiKeys({ ...apiKeys, claude: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-                    placeholder="sk-ant-..."
-                  />
-                  <p className="mt-1 text-[10px] text-muted">Aussi utilise pour l&apos;orchestrateur IA. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
-                </div>
-                <div>
-                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
-                    <span className="inline-block h-2 w-2 rounded-full bg-[#10A37F]" />
-                    OpenAI {usedProviders.has("openai") && <span className="text-accent">*requis</span>}
-                  </label>
-                  <input
-                    type="password"
-                    value={apiKeys.openai || ""}
-                    onChange={(e) => setApiKeys({ ...apiKeys, openai: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-                    placeholder="sk-..."
-                  />
-                  <p className="mt-1 text-[10px] text-muted">Pour GPT-4o et GPT-4o-mini. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
-                </div>
-                <div>
-                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
-                    <span className="inline-block h-2 w-2 rounded-full bg-[#4285F4]" />
-                    Google (Gemini) {usedProviders.has("gemini") && <span className="text-accent">*requis</span>}
-                  </label>
-                  <input
-                    type="password"
-                    value={apiKeys.gemini || ""}
-                    onChange={(e) => setApiKeys({ ...apiKeys, gemini: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
-                    placeholder="AIza..."
-                  />
-                  <p className="mt-1 text-[10px] text-muted">Pour Gemini Flash et Pro. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
-                </div>
-              </div>
-            )}
-            <p className="mt-2 text-xs text-muted">
-              Vos cles restent stockees uniquement dans votre navigateur (sessionStorage). Seules les cles des providers utilises sont requises.
-            </p>
-          </div>
-        </section>
-
-        {/* History */}
-        {history.length > 0 && (
-          <section className="mb-8">
-            <h2 className="mb-3 text-lg font-semibold">Historique</h2>
-            <p className="mb-3 text-xs text-muted">Vos discussions precedentes. Cliquez pour revoir les resultats ou reutiliser la configuration.</p>
-            <div className="space-y-2">
-              {history.slice(0, 5).map((session) => (
-                <div key={session.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-card-hover">
-                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${
-                    session.mode === "decision" ? "bg-amber-500" : session.mode === "deliverable" ? "bg-emerald-500" : "bg-accent"
-                  }`}>
-                    {session.mode === "decision" ? "D" : session.mode === "deliverable" ? "L" : "E"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{session.topic}</p>
-                    <div className="flex items-center gap-2 text-[10px] text-muted">
-                      <span>{new Date(session.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-                      <span>·</span>
-                      <span>{session.agentNames.join(", ")}</span>
-                      <span>·</span>
-                      <span>{session.turns} tours</span>
-                      <span>·</span>
-                      <span className="font-mono">${session.cost.toFixed(4)}</span>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    <button
-                      onClick={() => handleViewSession(session)}
-                      className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
-                      title="Voir les resultats"
-                    >
-                      Resultats
-                    </button>
-                    <button
-                      onClick={() => handleReuseSession(session)}
-                      className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
-                      title="Reutiliser cette configuration"
-                    >
-                      Reutiliser
-                    </button>
-                    <button
-                      onClick={() => handleDeleteSession(session.id)}
-                      className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:border-danger hover:text-danger"
-                      title="Supprimer"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {history.length > 5 && (
-                <p className="text-center text-xs text-muted">et {history.length - 5} autre{history.length - 5 > 1 ? "s" : ""} discussion{history.length - 5 > 1 ? "s" : ""}...</p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Feedback History */}
-        {feedbackHistory.length > 0 && (
-          <section className="mb-8">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Avis et feedbacks</h2>
-              <button
-                onClick={() => setShowFeedback(!showFeedback)}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
-              >
-                {showFeedback ? "Masquer" : `Voir (${feedbackHistory.length})`}
-              </button>
-            </div>
-            {!showFeedback && (
-              <div className="flex items-center gap-4 text-sm text-muted">
-                <span>Note moyenne : <span className="font-semibold text-amber-400">{"★".repeat(Math.round(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length))}</span> ({(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length).toFixed(1)}/5)</span>
-                <span>·</span>
-                <span>{feedbackHistory.length} avis</span>
-              </div>
-            )}
-            {showFeedback && (
-              <div className="space-y-2">
-                {feedbackHistory.map((fb, i) => (
-                  <div key={i} className="rounded-xl border border-border bg-card p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-amber-400">{"★".repeat(fb.rating)}{"☆".repeat(5 - fb.rating)}</span>
-                        <span className="text-xs text-muted">{new Date(fb.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted">
-                        <span>{fb.mode}</span>
-                        <span>·</span>
-                        <span>{fb.turns} tours</span>
-                        <span>·</span>
-                        <span className="font-mono">${fb.cost.toFixed(4)}</span>
-                      </div>
-                    </div>
-                    <p className="mt-1 truncate text-sm">{fb.topic}</p>
-                    {fb.feedback && <p className="mt-1 text-xs text-muted italic">&ldquo;{fb.feedback}&rdquo;</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Templates */}
-        <section className="mb-8">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Templates</h2>
-            <button
-              onClick={() => setShowSaveTemplate(!showSaveTemplate)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted transition-colors hover:border-accent hover:text-accent"
-            >
-              + Sauvegarder comme template
-            </button>
-          </div>
-          <p className="mb-3 text-xs text-muted">Configurations pre-definies pour demarrer rapidement. Cliquez pour appliquer : les agents, le mode et les parametres seront pre-remplis.</p>
-
-          {/* Save template form */}
-          {showSaveTemplate && (
-            <div className="mb-4 rounded-xl border border-accent/30 bg-accent/5 p-4">
-              <h3 className="mb-3 text-sm font-semibold text-accent">Sauvegarder la configuration actuelle</h3>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={newTemplateName}
-                  onChange={(e) => setNewTemplateName(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
-                  placeholder="Nom du template"
-                />
-                <input
-                  type="text"
-                  value={newTemplateDesc}
-                  onChange={(e) => setNewTemplateDesc(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent"
-                  placeholder="Description (optionnel)"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSaveTemplate}
-                    disabled={!newTemplateName.trim()}
-                    className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
-                  >
-                    Sauvegarder
-                  </button>
-                  <button
-                    onClick={() => setShowSaveTemplate(false)}
-                    className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:text-foreground"
-                  >
-                    Annuler
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Custom templates */}
-          {customTemplates.length > 0 && (
-            <div className="mb-4">
-              <h3 className="mb-2 text-xs font-medium text-muted uppercase">Mes templates</h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {customTemplates.map((template) => {
-                  const isSelected = selectedTemplate === template.id;
-                  return (
-                    <div key={template.id} className="relative">
-                      <button
-                        onClick={() => applyTemplate(template.id)}
-                        className={`w-full rounded-xl border p-4 text-left transition-all ${
-                          isSelected
-                            ? "border-accent bg-accent/10 ring-1 ring-accent"
-                            : "border-border bg-card hover:border-accent hover:bg-card-hover"
-                        }`}
-                      >
-                        <div className="mb-1 flex items-center gap-2">
-                          {isSelected && (
-                            <svg className="h-4 w-4 shrink-0 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                          <span className={`text-sm font-semibold ${isSelected ? "text-accent" : ""}`}>{template.name}</span>
-                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                            template.mode === "decision"
-                              ? "bg-amber-500/10 text-amber-500"
-                              : template.mode === "deliverable"
-                                ? "bg-emerald-500/10 text-emerald-500"
-                                : "bg-accent/10 text-accent"
-                          }`}>
-                            {modeLabel[template.mode]}
-                          </span>
-                        </div>
-                        <div className="text-xs text-muted">{template.description}</div>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCustomTemplate(template.id)}
-                        className="absolute right-2 top-2 rounded-md p-1 text-muted opacity-0 transition-all hover:text-danger group-hover:opacity-100 [div:hover>&]:opacity-100"
-                        title="Supprimer ce template"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Built-in templates */}
-          {customTemplates.length > 0 && (
-            <h3 className="mb-2 text-xs font-medium text-muted uppercase">Templates integres</h3>
-          )}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {TEMPLATES.map((template) => {
-              const isSelected = selectedTemplate === template.id;
-              return (
-              <button
-                key={template.id}
-                onClick={() => applyTemplate(template.id)}
-                className={`rounded-xl border p-4 text-left transition-all ${
-                  isSelected
-                    ? "border-accent bg-accent/10 ring-1 ring-accent"
-                    : "border-border bg-card hover:border-accent hover:bg-card-hover"
-                }`}
-              >
-                <div className="mb-1 flex items-center gap-2">
-                  {isSelected && (
-                    <svg className="h-4 w-4 shrink-0 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                  <span className={`text-sm font-semibold ${isSelected ? "text-accent" : ""}`}>{template.name}</span>
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                    template.mode === "decision"
-                      ? "bg-amber-500/10 text-amber-500"
-                      : template.mode === "deliverable"
-                        ? "bg-emerald-500/10 text-emerald-500"
-                        : "bg-accent/10 text-accent"
-                  }`}>
-                    {modeLabel[template.mode]}
-                  </span>
-                </div>
-                <div className="text-xs text-muted">{template.description}</div>
-              </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Topic */}
-        <section className="mb-8">
+        {/* Topic — first and most important */}
+        <section className="mb-6">
           <h2 className="mb-3 text-lg font-semibold">Sujet de la discussion</h2>
           <p className="mb-2 text-xs text-muted">La question, le probleme ou le theme que les agents vont discuter. Plus c&apos;est precis, meilleurs seront les echanges.</p>
           <div className="relative">
@@ -672,6 +370,171 @@ export default function SetupPage() {
               <p className="mt-2 text-[10px] text-muted">Ces experts ont ete pre-selectionnes. Modifiez-les dans les options avancees ou ajoutez-en depuis le pool.</p>
             </div>
           )}
+        </section>
+
+        {/* Templates — compact horizontal pills */}
+        <section className="mb-6">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted">Demarrage rapide</h2>
+            <button
+              onClick={() => setShowSaveTemplate(!showSaveTemplate)}
+              className="text-[11px] text-muted transition-colors hover:text-accent"
+            >
+              + Sauvegarder
+            </button>
+          </div>
+          {showSaveTemplate && (
+            <div className="mb-3 flex items-center gap-2">
+              <input
+                type="text"
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                className="w-40 rounded-lg border border-border bg-card px-2 py-1.5 text-xs outline-none focus:border-accent"
+                placeholder="Nom du template"
+              />
+              <input
+                type="text"
+                value={newTemplateDesc}
+                onChange={(e) => setNewTemplateDesc(e.target.value)}
+                className="flex-1 rounded-lg border border-border bg-card px-2 py-1.5 text-xs outline-none focus:border-accent"
+                placeholder="Description (optionnel)"
+              />
+              <button
+                onClick={handleSaveTemplate}
+                disabled={!newTemplateName.trim()}
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+              >
+                OK
+              </button>
+              <button
+                onClick={() => setShowSaveTemplate(false)}
+                className="text-xs text-muted hover:text-foreground"
+              >
+                Annuler
+              </button>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {customTemplates.map((template) => {
+              const isSelected = selectedTemplate === template.id;
+              return (
+                <div key={template.id} className="group relative">
+                  <button
+                    onClick={() => applyTemplate(template.id)}
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-all ${
+                      isSelected
+                        ? "border-accent bg-accent/10 font-semibold text-accent"
+                        : "border-border bg-card text-foreground hover:border-accent"
+                    }`}
+                    title={template.description}
+                  >
+                    {template.name}
+                    <span className={`rounded px-1 py-0.5 text-[9px] font-medium ${
+                      template.mode === "decision" ? "bg-amber-500/10 text-amber-500"
+                        : template.mode === "deliverable" ? "bg-emerald-500/10 text-emerald-500"
+                          : "bg-accent/10 text-accent"
+                    }`}>{modeLabel[template.mode]}</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCustomTemplate(template.id)}
+                    className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-danger text-[8px] text-white group-hover:flex"
+                    title="Supprimer"
+                  >&times;</button>
+                </div>
+              );
+            })}
+            {TEMPLATES.map((template) => {
+              const isSelected = selectedTemplate === template.id;
+              return (
+                <button
+                  key={template.id}
+                  onClick={() => applyTemplate(template.id)}
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-all ${
+                    isSelected
+                      ? "border-accent bg-accent/10 font-semibold text-accent"
+                      : "border-border bg-card text-foreground hover:border-accent"
+                  }`}
+                  title={template.description}
+                >
+                  {template.name}
+                  <span className={`rounded px-1 py-0.5 text-[9px] font-medium ${
+                    template.mode === "decision" ? "bg-amber-500/10 text-amber-500"
+                      : template.mode === "deliverable" ? "bg-emerald-500/10 text-emerald-500"
+                        : "bg-accent/10 text-accent"
+                  }`}>{modeLabel[template.mode]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* API Keys — collapsible, remembers keys */}
+        <section className="mb-6">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="h-4 w-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                <h2 className="text-sm font-semibold">Cles API</h2>
+                {!showApiKeys && apiKeys.claude && (
+                  <span className="text-[10px] text-muted">Memorisees</span>
+                )}
+              </div>
+              <button onClick={() => setShowApiKeys(!showApiKeys)} className="text-xs text-muted hover:text-foreground">
+                {showApiKeys ? "Masquer" : "Modifier"}
+              </button>
+            </div>
+            {showApiKeys && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                    <span className="inline-block h-2 w-2 rounded-full bg-[#D97706]" />
+                    Anthropic (Claude) {usedProviders.has("claude") && <span className="text-accent">*requis</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKeys.claude || ""}
+                    onChange={(e) => setApiKeys({ ...apiKeys, claude: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                    placeholder="sk-ant-..."
+                  />
+                  <p className="mt-1 text-[10px] text-muted">Aussi utilise pour l&apos;orchestrateur IA. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
+                </div>
+                <div>
+                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                    <span className="inline-block h-2 w-2 rounded-full bg-[#10A37F]" />
+                    OpenAI {usedProviders.has("openai") && <span className="text-accent">*requis</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKeys.openai || ""}
+                    onChange={(e) => setApiKeys({ ...apiKeys, openai: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                    placeholder="sk-..."
+                  />
+                  <p className="mt-1 text-[10px] text-muted">Pour GPT-4o et GPT-4o-mini. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
+                </div>
+                <div>
+                  <label className="mb-1 flex items-center gap-2 text-xs font-medium text-muted">
+                    <span className="inline-block h-2 w-2 rounded-full bg-[#4285F4]" />
+                    Google (Gemini) {usedProviders.has("gemini") && <span className="text-accent">*requis</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKeys.gemini || ""}
+                    onChange={(e) => setApiKeys({ ...apiKeys, gemini: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
+                    placeholder="AIza..."
+                  />
+                  <p className="mt-1 text-[10px] text-muted">Pour Gemini Flash et Pro. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-hover">Obtenir une cle</a></p>
+                </div>
+                <p className="text-[10px] text-muted">
+                  Vos cles restent stockees uniquement dans votre navigateur (localStorage). Elles seront memorisees pour vos prochaines sessions.
+                </p>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Advanced toggle */}
@@ -871,6 +734,101 @@ export default function SetupPage() {
             </p>
           )}
         </div>
+
+        {/* History — at the bottom */}
+        {history.length > 0 && (
+          <section className="mb-6 mt-8 border-t border-border pt-8">
+            <h2 className="mb-3 text-lg font-semibold">Historique</h2>
+            <div className="space-y-2">
+              {history.slice(0, 5).map((session) => (
+                <div key={session.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-card-hover">
+                  <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${
+                    session.mode === "decision" ? "bg-amber-500" : session.mode === "deliverable" ? "bg-emerald-500" : "bg-accent"
+                  }`}>
+                    {session.mode === "decision" ? "D" : session.mode === "deliverable" ? "L" : "E"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{session.topic}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-muted">
+                      <span>{new Date(session.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                      <span>·</span>
+                      <span>{session.agentNames.join(", ")}</span>
+                      <span>·</span>
+                      <span>{session.turns} tours</span>
+                      <span>·</span>
+                      <span className="font-mono">${session.cost.toFixed(4)}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      onClick={() => handleViewSession(session)}
+                      className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
+                      title="Voir les resultats"
+                    >
+                      Resultats
+                    </button>
+                    <button
+                      onClick={() => handleReuseSession(session)}
+                      className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted transition-colors hover:border-accent hover:text-accent"
+                      title="Reutiliser cette configuration"
+                    >
+                      Reutiliser
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSession(session.id)}
+                      className="rounded-lg border border-border px-2 py-1.5 text-[11px] text-muted transition-colors hover:border-danger hover:text-danger"
+                      title="Supprimer"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {history.length > 5 && (
+                <p className="text-center text-xs text-muted">et {history.length - 5} autre{history.length - 5 > 1 ? "s" : ""} discussion{history.length - 5 > 1 ? "s" : ""}...</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Feedback History — at the very bottom */}
+        {feedbackHistory.length > 0 && (
+          <section className="mb-8">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-muted">Avis ({feedbackHistory.length})</h2>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted">
+                  <span className="text-amber-400">{"★".repeat(Math.round(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length))}</span> {(feedbackHistory.reduce((s, f) => s + f.rating, 0) / feedbackHistory.length).toFixed(1)}/5
+                </span>
+                <button
+                  onClick={() => setShowFeedback(!showFeedback)}
+                  className="text-[11px] text-muted transition-colors hover:text-accent"
+                >
+                  {showFeedback ? "Masquer" : "Details"}
+                </button>
+              </div>
+            </div>
+            {showFeedback && (
+              <div className="space-y-2">
+                {feedbackHistory.map((fb, i) => (
+                  <div key={i} className="rounded-xl border border-border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400">{"★".repeat(fb.rating)}{"☆".repeat(5 - fb.rating)}</span>
+                        <span className="text-xs text-muted">{new Date(fb.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                      <span className="text-[10px] text-muted">{fb.mode} · {fb.turns} tours</span>
+                    </div>
+                    <p className="mt-1 truncate text-sm">{fb.topic}</p>
+                    {fb.feedback && <p className="mt-1 text-xs text-muted italic">&ldquo;{fb.feedback}&rdquo;</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );
