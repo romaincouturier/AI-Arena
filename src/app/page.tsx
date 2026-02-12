@@ -58,6 +58,10 @@ export default function SetupPage() {
         setApiKeys(saved);
         setShowApiKeys(false);
         setIsFirstVisit(false);
+        // Adapt default agents to available provider
+        const p: "claude" | "openai" | "gemini" = saved.claude ? "claude" : saved.openai ? "openai" : "gemini";
+        const m = p === "claude" ? "claude-haiku-4-5-20251001" : p === "openai" ? "gpt-4o-mini" : "gemini-2.0-flash";
+        setAgents((prev) => prev.map((a) => a.provider !== p ? { ...a, provider: p, model: m } : a));
       } else {
         setShowApiKeys(true);
         setIsFirstVisit(true);
@@ -326,6 +330,10 @@ export default function SetupPage() {
                 onClick={() => {
                   if (hasAnyKey) {
                     localStorage.setItem("ai-arena-api-keys", JSON.stringify(apiKeys));
+                    // Switch default agents to the provider whose key was entered
+                    const availableProvider: "claude" | "openai" | "gemini" = apiKeys.claude?.trim() ? "claude" : apiKeys.openai?.trim() ? "openai" : "gemini";
+                    const defaultModel = availableProvider === "claude" ? "claude-haiku-4-5-20251001" : availableProvider === "openai" ? "gpt-4o-mini" : "gemini-2.0-flash";
+                    setAgents((prev) => prev.map((a) => ({ ...a, provider: availableProvider, model: defaultModel })));
                     setIsFirstVisit(false);
                     setShowApiKeys(false);
                   }

@@ -1,10 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 export const runtime = "edge";
 export const maxDuration = 30;
 
 interface RequestBody {
   apiKey: string;
+  provider?: "claude" | "openai" | "gemini";
   topic: string;
   mode: "exploration" | "decision" | "deliverable";
   agents: { id: string; name: string; role: string; personality: string; stance?: string }[];
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const { apiKey, topic, mode, agents, history, turnNumber, maxTurns, language } = body;
+  const { apiKey, provider = "claude", topic, mode, agents, history, turnNumber, maxTurns, language } = body;
 
   if (!apiKey) {
     return new Response("Missing API key", { status: 400 });
@@ -72,30 +74,56 @@ Tu DOIS repondre UNIQUEMENT avec un JSON valide (pas de markdown, pas de texte a
     ? history.map((m) => `[${m.isUser ? "Utilisateur" : m.agentName}]: ${m.content}`).join("\n\n")
     : "(Debut de la discussion, aucun message encore)";
 
-  const client = new Anthropic({ apiKey });
+  const userContent = `Historique de la discussion :\n\n${historyText}\n\nQui parle ensuite et quelle instruction ?`;
 
   try {
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 500,
-      system: systemPrompt,
-      messages: [{ role: "user", content: `Historique de la discussion :\n\n${historyText}\n\nQui parle ensuite et quelle instruction ?` }],
-    });
+    let text = "";
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    if (provider === "openai") {
+      const client = new OpenAI({ apiKey });
+      const response = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 500,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+      });
+      text = response.choices[0]?.message?.content || "";
+    } else if (provider === "gemini") {
+      const client = new OpenAI({
+        apiKey,
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      });
+      const response = await client.chat.completions.create({
+        model: "gemini-2.0-flash",
+        max_tokens: 500,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+      });
+      text = response.choices[0]?.message?.content || "";
+    } else {
+      const client = new Anthropic({ apiKey });
+      const response = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+      });
+      text = response.content[0].type === "text" ? response.content[0].text : "";
+    }
 
     // Extract JSON from response
     let parsed;
     try {
-      // Try direct parse
       parsed = JSON.parse(text);
     } catch {
-      // Try to extract JSON from text
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[0]);
       } else {
-        // Fallback: round-robin
         const agentIndex = (turnNumber - 1) % agents.length;
         parsed = {
           nextSpeaker: agents[agentIndex].id,
@@ -109,7 +137,6 @@ Tu DOIS repondre UNIQUEMENT avec un JSON valide (pas de markdown, pas de texte a
     // Validate nextSpeaker exists
     const validAgent = agents.find((a) => a.id === parsed.nextSpeaker);
     if (!validAgent) {
-      // Fallback if agent not found
       const agentIndex = (turnNumber - 1) % agents.length;
       parsed.nextSpeaker = agents[agentIndex].id;
     }
@@ -118,7 +145,6 @@ Tu DOIS repondre UNIQUEMENT avec un JSON valide (pas de markdown, pas de texte a
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    // Fallback on error
     const agentIndex = (turnNumber - 1) % agents.length;
     return new Response(JSON.stringify({
       nextSpeaker: agents[agentIndex].id,

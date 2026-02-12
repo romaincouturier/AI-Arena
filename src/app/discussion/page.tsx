@@ -257,9 +257,11 @@ export default function DiscussionPage() {
   const callOrchestrator = useCallback(
     async (history: Message[], turn: number): Promise<OrchestratorDecision> => {
       if (!config) throw new Error("No config");
-      const claudeKey = apiKeys.claude || "";
-      if (!claudeKey) {
-        // Fallback round-robin if no Claude key for orchestrator
+      // Pick the best available key for the orchestrator
+      const orchKey = apiKeys.claude || apiKeys.openai || apiKeys.gemini || "";
+      const orchProvider = apiKeys.claude ? "claude" : apiKeys.openai ? "openai" : apiKeys.gemini ? "gemini" : "claude";
+      if (!orchKey) {
+        // Fallback round-robin if no key at all
         const agentIndex = (turn - 1) % config.agents.length;
         return {
           nextSpeaker: config.agents[agentIndex].id,
@@ -276,7 +278,8 @@ export default function DiscussionPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            apiKey: claudeKey,
+            apiKey: orchKey,
+            provider: orchProvider,
             topic: config.topic,
             mode: config.mode,
             agents: config.agents.map((a) => ({
@@ -407,7 +410,7 @@ Sois concis et tranche.`;
   const generateFinalOutput = useCallback(
     async (allMessages: Message[], outputType: "synthesis" | "deliverable"): Promise<string> => {
       if (!config) return "";
-      const claudeKey = apiKeys.claude || getApiKey(config.agents[0].provider);
+      const finalKey = getApiKey(config.agents[0].provider) || apiKeys.claude || apiKeys.openai || apiKeys.gemini || "";
       const model = config.agents[0].model;
       const contextHistory = buildSlidingContext(allMessages, 25);
       const lang = config.rules.language === "fr" ? "francais" : "anglais";
@@ -452,7 +455,7 @@ REGLES CRITIQUES pour le livrable :
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: config.agents[0].provider,
-          apiKey: claudeKey,
+          apiKey: finalKey,
           model,
           systemPrompt: system,
           turnInstruction: instruction,
