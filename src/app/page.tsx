@@ -274,7 +274,7 @@ export default function SetupPage() {
           <div className="flex items-center justify-center py-20">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
           </div>
-        ) : isFirstVisit && !hasAnyKey ? (
+        ) : isFirstVisit ? (
           <section className="mx-auto max-w-lg">
             <div className="mb-6 text-center">
               <h2 className="mb-2 text-xl font-bold">Bienvenue sur AI Arena</h2>
