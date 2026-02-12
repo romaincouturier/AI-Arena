@@ -101,10 +101,15 @@ export default function SetupPage() {
     setMaxTurns(template.rules.maxTurns);
     setMaxTokensPerTurn(template.rules.maxTokensPerTurn);
     setLanguage(template.rules.language);
+    // Adapt agents to available provider
+    const availableProvider: "claude" | "openai" | "gemini" = apiKeys.claude?.trim() ? "claude" : apiKeys.openai?.trim() ? "openai" : apiKeys.gemini?.trim() ? "gemini" : "claude";
+    const defaultModel = availableProvider === "claude" ? "claude-haiku-4-5-20251001" : availableProvider === "openai" ? "gpt-4o-mini" : "gemini-2.0-flash";
     setAgents(
       template.agents.map((a, i) => ({
         ...a,
         id: uuidv4(),
+        provider: availableProvider,
+        model: defaultModel,
         color: a.color || AGENT_COLORS[i % AGENT_COLORS.length],
       }))
     );
@@ -159,11 +164,14 @@ export default function SetupPage() {
     setHistory((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const expertToAgent = (expert: ExpertProfile, index: number, stance?: string): AgentConfig => ({
+  const expertToAgent = (expert: ExpertProfile, index: number, stance?: string): AgentConfig => {
+    const p: "claude" | "openai" | "gemini" = apiKeys.claude?.trim() ? "claude" : apiKeys.openai?.trim() ? "openai" : apiKeys.gemini?.trim() ? "gemini" : "claude";
+    const m = p === "claude" ? "claude-haiku-4-5-20251001" : p === "openai" ? "gpt-4o-mini" : "gemini-2.0-flash";
+    return {
     id: uuidv4(),
     name: expert.name,
-    provider: "claude",
-    model: "claude-haiku-4-5-20251001",
+    provider: p,
+    model: m,
     role: `${expert.title} - ${expert.expertise.slice(0, 80)}`,
     personality: expert.personality,
     stance: (stance as AgentConfig["stance"]) || expert.defaultStance,
@@ -172,7 +180,8 @@ export default function SetupPage() {
     frameworks: expert.frameworks,
     biases: expert.biases,
     style: expert.style,
-  });
+  };
+  };
 
   const handleSuggestExperts = async () => {
     if (!topic.trim() || !apiKeys.claude?.trim()) return;
