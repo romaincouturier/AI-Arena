@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { EXPERT_POOL } from "@/lib/experts";
+import { EXPERT_POOL } from "../../../lib/experts";
 
 export const runtime = "edge";
 export const maxDuration = 15;

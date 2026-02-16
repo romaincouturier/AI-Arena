@@ -1,6 +1,6 @@
 "use client";
 
-import type { Message } from "@/lib/types";
+import type { Message } from "../lib/types";
 
 interface MessageBubbleProps {
   message: Message;

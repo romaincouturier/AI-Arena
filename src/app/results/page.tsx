@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { SessionConfig, SessionResult } from "@/lib/types";
-import { exportToMarkdown, downloadMarkdown } from "@/lib/export";
-import MessageBubble from "@/components/MessageBubble";
+import type { SessionConfig, SessionResult } from "../../lib/types";
+import { exportToMarkdown, downloadMarkdown } from "../../lib/export";
+import MessageBubble from "../../components/MessageBubble";
 
 export default function ResultsPage() {
   const router = useRouter();

@@ -3,16 +3,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
-import type { SessionConfig, AgentConfig, DiscussionMode, UserMode, ApiKeys, Template } from "@/lib/types";
-import { AGENT_COLORS } from "@/lib/types";
-import { TEMPLATES } from "@/lib/templates";
-import { getSavedSessions, deleteSession, type SavedSession } from "@/lib/history";
-import { getCustomTemplates, saveCustomTemplate, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
-import { EXPERT_POOL, type ExpertProfile } from "@/lib/experts";
-import AgentCard from "@/components/AgentCard";
-import { createDefaultAgent } from "@/lib/store";
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import { getMemories, addMemory, deleteMemory, type Memory } from "@/lib/memories";
+import type { SessionConfig, AgentConfig, DiscussionMode, UserMode, ApiKeys, Template } from "../lib/types";
+import { AGENT_COLORS } from "../lib/types";
+import { TEMPLATES } from "../lib/templates";
+import { getSavedSessions, deleteSession, type SavedSession } from "../lib/history";
+import { getCustomTemplates, saveCustomTemplate, deleteCustomTemplate, type CustomTemplate } from "../lib/customTemplates";
+import { EXPERT_POOL, type ExpertProfile } from "../lib/experts";
+import AgentCard from "../components/AgentCard";
+import { createDefaultAgent } from "../lib/store";
+import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
+import { getMemories, addMemory, deleteMemory, type Memory } from "../lib/memories";
 
 export default function SetupPage() {
   const router = useRouter();

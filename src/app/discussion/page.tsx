@@ -2,15 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import type { SessionConfig, Message, ApiKeys, OrchestratorDecision, VoteResult, DiscussionState } from "@/lib/types";
-import { estimateCost } from "@/lib/types";
-import { buildSlidingContext } from "@/lib/store";
-import MessageBubble from "@/components/MessageBubble";
-import TypingIndicator from "@/components/TypingIndicator";
-import { exportToMarkdown, downloadMarkdown } from "@/lib/export";
-import { saveSession } from "@/lib/history";
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import { getMemories, buildMemoryContext } from "@/lib/memories";
+import type { SessionConfig, Message, ApiKeys, OrchestratorDecision, VoteResult, DiscussionState } from "../../lib/types";
+import { estimateCost } from "../../lib/types";
+import { buildSlidingContext } from "../../lib/store";
+import MessageBubble from "../../components/MessageBubble";
+import TypingIndicator from "../../components/TypingIndicator";
+import { exportToMarkdown, downloadMarkdown } from "../../lib/export";
+import { saveSession } from "../../lib/history";
+import { useSpeechRecognition } from "../../hooks/useSpeechRecognition";
+import { getMemories, buildMemoryContext } from "../../lib/memories";
 import { v4 as uuidv4 } from "uuid";
 
 export default function DiscussionPage() {

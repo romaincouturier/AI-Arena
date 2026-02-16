@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import type { AgentConfig, Provider, ApiKeys, DiscussionMode, Stance, ContextFile } from "@/lib/types";
-import { AVAILABLE_MODELS } from "@/lib/types";
+import type { AgentConfig, Provider, ApiKeys, DiscussionMode, Stance, ContextFile } from "../lib/types";
+import { AVAILABLE_MODELS } from "../lib/types";
 
 interface AgentCardProps {
   agent: AgentConfig;
