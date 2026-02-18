@@ -168,6 +168,19 @@ export default function SetupPage() {
     setSelectedTemplate(null);
   };
 
+  const handleContinueSession = (session: SavedSession) => {
+    sessionStorage.setItem("ai-arena-config", JSON.stringify(session.config));
+    sessionStorage.setItem("ai-arena-api-keys", JSON.stringify(apiKeys));
+    sessionStorage.setItem("ai-arena-start-time", String(new Date(session.date).getTime()));
+    sessionStorage.setItem("ai-arena-resume", JSON.stringify({
+      messages: session.result.messages,
+      metrics: session.result.metrics,
+      keyPoints: session.result.keyPoints,
+      votes: session.result.votes || [],
+    }));
+    router.push("/discussion");
+  };
+
   const handleDeleteSession = (id: string) => {
     deleteSession(id);
     setHistory((prev) => prev.filter((s) => s.id !== id));
@@ -379,12 +392,20 @@ export default function SetupPage() {
                             <span>{session.agentNames.join(", ")}</span>
                             <span>{session.turns} tours · <span className="font-mono">${session.cost.toFixed(4)}</span></span>
                           </div>
-                          <div className="mt-2 flex gap-1">
+                          <div className="mt-2 flex flex-wrap gap-1">
                             <button
                               onClick={() => { handleViewSession(session); setShowSidebar(false); }}
                               className="rounded-lg border border-border px-2 py-1 text-[10px] text-muted transition-colors hover:border-accent hover:text-accent"
                             >
                               Resultats
+                            </button>
+                            <button
+                              onClick={() => { handleContinueSession(session); setShowSidebar(false); }}
+                              className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] text-emerald-500 transition-colors hover:bg-emerald-500/20"
+                              title="Reprendre cette discussion la ou elle s'est arretee"
+                            >
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                              Poursuivre
                             </button>
                             <button
                               onClick={() => { handleReuseSession(session); setStep(2); setShowSidebar(false); }}

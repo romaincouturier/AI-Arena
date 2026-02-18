@@ -124,6 +124,8 @@ export default function DiscussionPage() {
     userHasScrolledRef.current = distanceFromBottom > 400;
   }, []);
 
+  const [isResumed, setIsResumed] = useState(false);
+
   useEffect(() => {
     const configStr = sessionStorage.getItem("ai-arena-config");
     const keysStr = sessionStorage.getItem("ai-arena-api-keys") || localStorage.getItem("ai-arena-api-keys");
@@ -131,6 +133,25 @@ export default function DiscussionPage() {
     try {
       setConfig(JSON.parse(configStr));
       if (keysStr) setApiKeys(JSON.parse(keysStr));
+
+      // Check if we're resuming from history
+      const resumeStr = sessionStorage.getItem("ai-arena-resume");
+      if (resumeStr) {
+        sessionStorage.removeItem("ai-arena-resume");
+        const resume = JSON.parse(resumeStr);
+        // Filter out synthesis/deliverable messages so user can continue cleanly
+        const conversationMessages = (resume.messages || []).filter(
+          (m: { isSynthesis?: boolean; isDeliverable?: boolean }) => !m.isSynthesis && !m.isDeliverable
+        );
+        setMessages(conversationMessages);
+        setTurnNumber(resume.metrics?.totalTurns || conversationMessages.length);
+        setTotalTokens(resume.metrics?.totalTokens || 0);
+        setTotalInputTokens(resume.metrics?.totalInputTokens || 0);
+        setEstimatedCostUsd(resume.metrics?.estimatedCost || 0);
+        if (resume.keyPoints?.length) setKeyPoints(resume.keyPoints);
+        if (resume.votes?.length) setVotes(resume.votes);
+        setIsResumed(true);
+      }
     } catch { router.push("/"); }
   }, [router]);
 
@@ -677,7 +698,7 @@ REGLES CRITIQUES pour le livrable :
       // Auto-extract memories from key points
       try {
         if (keyPoints.length > 0) {
-          const { addMemory } = await import("@/lib/memories");
+          const { addMemory } = await import("../../lib/memories");
           for (const point of keyPoints.slice(0, 5)) {
             addMemory(point, {
               source: "auto",
@@ -699,11 +720,11 @@ REGLES CRITIQUES pour le livrable :
   }, [config, callAgent, callOrchestrator, runVoting, generateFinalOutput, keyPoints, waitForUserContinue]);
 
   useEffect(() => {
-    if (config && !isRunning && messages.length === 0 && !error) {
+    if (config && !isRunning && messages.length === 0 && !error && !isResumed) {
       sessionStorage.setItem("ai-arena-start-time", String(Date.now()));
       runDiscussion();
     }
-  }, [config, isRunning, messages.length, error, runDiscussion]);
+  }, [config, isRunning, messages.length, error, isResumed, runDiscussion]);
 
   const handlePause = () => setIsPaused(!isPaused);
   const handleStop = () => {
@@ -974,7 +995,7 @@ REGLES CRITIQUES pour le livrable :
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
       <header className="shrink-0 border-b border-border">
-        <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-3">
           <div className="flex items-center gap-3">
             <button onClick={() => router.push("/")} className="rounded-lg p-1.5 text-muted transition-colors hover:text-foreground">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1079,7 +1100,7 @@ REGLES CRITIQUES pour le livrable :
           </div>
         </div>
         {/* Agent badges */}
-        <div className="flex gap-2 overflow-x-auto px-6 pb-3">
+        <div className="flex gap-2 overflow-x-auto px-3 sm:px-6 pb-3">
           {config.agents.map((agent) => (
             <div
               key={agent.id}
@@ -1103,7 +1124,7 @@ REGLES CRITIQUES pour le livrable :
 
           {/* Streaming content */}
           {currentSpeaker && !["synthesis", "deliverable"].includes(currentSpeaker || "") && currentAgent && streamingContent && (
-            <div className="animate-fade-in-up mx-4 my-3">
+            <div className="animate-fade-in-up mx-1.5 sm:mx-4 my-3">
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: currentAgent.color }}>
                   {currentAgent.name.charAt(0).toUpperCase()}
@@ -1123,7 +1144,7 @@ REGLES CRITIQUES pour le livrable :
 
           {/* Synthesis/Deliverable streaming */}
           {(currentSpeaker === "synthesis" || currentSpeaker === "deliverable") && streamingContent && (
-            <div className={`animate-fade-in-up mx-4 my-4 rounded-xl border p-5 ${currentSpeaker === "deliverable" ? "border-emerald-500/30 bg-emerald-500/5" : "border-accent/30 bg-accent/5"}`}>
+            <div className={`animate-fade-in-up mx-1.5 sm:mx-4 my-4 rounded-xl border p-5 ${currentSpeaker === "deliverable" ? "border-emerald-500/30 bg-emerald-500/5" : "border-accent/30 bg-accent/5"}`}>
               <div className="mb-2 flex items-center gap-2">
                 <span className={`font-semibold ${currentSpeaker === "deliverable" ? "text-emerald-500" : "text-accent"}`}>
                   {currentSpeaker === "deliverable" ? "Generation du livrable..." : "Synthese en cours..."}
@@ -1138,12 +1159,12 @@ REGLES CRITIQUES pour le livrable :
           )}
 
           {error && (
-            <div className="mx-4 my-4 rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
+            <div className="mx-1.5 sm:mx-4 my-4 rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
           )}
 
           {/* End-of-discussion action bar inline */}
           {!isRunning && messages.length > 0 && (
-            <div className="mx-4 my-6 animate-fade-in-up rounded-xl border border-accent/30 bg-accent/5 p-5">
+            <div className="mx-1.5 sm:mx-4 my-6 animate-fade-in-up rounded-xl border border-accent/30 bg-accent/5 p-5">
               <p className="mb-4 text-center text-sm font-semibold text-accent">Discussion terminee</p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
@@ -1249,7 +1270,7 @@ REGLES CRITIQUES pour le livrable :
 
       {/* Step-by-step input — always visible during discussion */}
       {isRunning && (
-        <div className="shrink-0 border-t border-border px-6 py-3">
+        <div className="shrink-0 border-t border-border px-3 sm:px-6 py-3">
           {waitingForUser ? (
             /* Waiting for user: show next speaker recommendation + input */
             <div>

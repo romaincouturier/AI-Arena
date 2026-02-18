@@ -11,6 +11,13 @@ export default function ResultsPage() {
   const [config, setConfig] = useState<SessionConfig | null>(null);
   const [result, setResult] = useState<SessionResult | null>(null);
   const [activeTab, setActiveTab] = useState<"synthesis" | "transcript" | "metrics" | "votes" | "deliverable">("synthesis");
+  const [copiedSection, setCopiedSection] = useState<string | null>(null);
+
+  const copyToClipboard = async (text: string, section: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedSection(section);
+    setTimeout(() => setCopiedSection(null), 2000);
+  };
 
   useEffect(() => {
     const configStr = sessionStorage.getItem("ai-arena-config");
@@ -57,14 +64,14 @@ export default function ResultsPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/")} className="rounded-lg p-1.5 text-muted transition-colors hover:text-foreground">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-3 sm:px-6 py-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => router.push("/")} className="shrink-0 rounded-lg p-1.5 text-muted transition-colors hover:text-foreground">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-semibold">Resultats</h1>
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
@@ -78,18 +85,18 @@ export default function ResultsPage() {
               <p className="max-w-md truncate text-xs text-muted">{config.topic}</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => router.push("/")} className="rounded-lg border border-border px-4 py-2 text-sm transition-colors hover:border-border-hover">
+          <div className="flex shrink-0 gap-2">
+            <button onClick={() => router.push("/")} className="hidden sm:block rounded-lg border border-border px-4 py-2 text-sm transition-colors hover:border-border-hover">
               Nouvelle discussion
             </button>
-            <button onClick={handleExport} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover">
-              Exporter Markdown
+            <button onClick={handleExport} className="rounded-lg bg-accent px-3 sm:px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover">
+              Exporter
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-8">
+      <main className="mx-auto max-w-5xl px-3 sm:px-6 py-8">
         {/* Tabs */}
         <div className="mb-6 flex gap-1 rounded-lg border border-border bg-card p-1">
           {tabs.map((tab) => (
@@ -109,7 +116,20 @@ export default function ResultsPage() {
         {activeTab === "synthesis" && (
           <div className="space-y-6">
             <div className="rounded-xl border border-accent/30 bg-accent/5 p-6">
-              <h2 className="mb-4 text-lg font-semibold text-accent">Synthese de la discussion</h2>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-accent">Synthese de la discussion</h2>
+                <button
+                  onClick={() => copyToClipboard(result.synthesis, "synthesis")}
+                  className="rounded-lg p-2 text-muted transition-colors hover:bg-accent/10 hover:text-accent"
+                  title="Copier la synthese"
+                >
+                  {copiedSection === "synthesis" ? (
+                    <svg className="h-4 w-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  ) : (
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                  )}
+                </button>
+              </div>
               <div className="whitespace-pre-wrap text-sm leading-relaxed">{result.synthesis}</div>
             </div>
 
@@ -157,7 +177,20 @@ export default function ResultsPage() {
         {/* Deliverable tab */}
         {activeTab === "deliverable" && hasDeliverable && (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-6">
-            <h2 className="mb-4 text-lg font-semibold text-emerald-500">Livrable final</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-emerald-500">Livrable final</h2>
+              <button
+                onClick={() => copyToClipboard(result.deliverable!, "deliverable")}
+                className="rounded-lg p-2 text-muted transition-colors hover:bg-emerald-500/10 hover:text-emerald-500"
+                title="Copier le livrable"
+              >
+                {copiedSection === "deliverable" ? (
+                  <svg className="h-4 w-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                )}
+              </button>
+            </div>
             <div className="whitespace-pre-wrap text-sm leading-relaxed">{result.deliverable}</div>
           </div>
         )}

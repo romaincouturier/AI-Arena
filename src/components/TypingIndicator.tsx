@@ -10,7 +10,7 @@ export default function TypingIndicator({
   agentColor,
 }: TypingIndicatorProps) {
   return (
-    <div className="animate-slide-in mx-4 my-3">
+    <div className="animate-slide-in mx-1.5 sm:mx-4 my-3">
       <div className="flex items-start gap-3">
         <div
           className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
